@@ -177,30 +177,9 @@ public:
 	}
 
 	/* for channels. */
-	int establish(CommChannel *channel, CommSchedObject *object,
-				  int wait_timeout, CommTarget **target)
+	int channel_send_one(CommSession *session)
 	{
-		int ret = -1;
-
-		*target = object->acquire(wait_timeout);
-		if (*target)
-		{
-			ret = this->comm.establish(channel, *target);
-			if (ret < 0)
-				(*target)->release(0);
-		}
-
-		return ret;
-	}
-
-	int send(TransSession *session, CommChannel *channel)
-	{
-		return this->comm.send(session, channel);
-	}
-
-	void shutdown(CommChannel *channel)
-	{
-		this->comm.shutdown(channel);
+		return this->comm.channel_send_one(session);
 	}
 
 public:

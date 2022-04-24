@@ -25,11 +25,12 @@
 #include <atomic>
 #include "list.h"
 #include "WFTask.h"
-#include "WFTaskFactory.h"
+//#include "WFCondTask.h"
 #include "WFGlobal.h"
 
-using WFWaitTask = WFMailboxTask;
-using wait_callback_t = mailbox_callback_t;
+class WFCondWaitTask;
+using WFWaitTask =  WFCondWaitTask;
+using wait_callback_t = std::function<void (WFMailboxTask *)>;
 
 class WFCondition
 {
@@ -40,15 +41,17 @@ public:
 public:
 	WFCondition()
 	{
-		this->mutex = new std::mutex;
-		this->ref = new std::atomic<int>(1);
+		this->ref = 1;
 		INIT_LIST_HEAD(&this->wait_list);
 	}
 	virtual ~WFCondition();
+    
+    bool add_waittask(WFCondWaitTask *task);
+    bool del_waittask(WFCondWaitTask *task);
 
 public:
-	std::atomic<int> *ref;
-	std::mutex *mutex;
+	std::atomic<int> ref;
+	std::mutex mutex;
 	struct list_head wait_list;
 };
 

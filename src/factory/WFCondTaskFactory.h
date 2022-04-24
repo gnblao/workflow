@@ -25,6 +25,7 @@
 #include <string>
 #include "list.h"
 #include "WFTask.h"
+#include "WFCondTask.h"
 #include "WFTaskFactory.h"
 #include "WFGlobal.h"
 #include "WFCondition.h"

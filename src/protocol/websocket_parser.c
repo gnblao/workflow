@@ -33,6 +33,7 @@ void websocket_parser_init(websocket_parser_t *parser)
 	parser->nreceived = 0;
 	parser->is_server = 0;
 	parser->status_code = WSStatusCodeUndefined;
+	parser->masking_key_offset = 0;
 	memset(parser->masking_key, 0, WS_MASKING_KEY_LENGTH);
 	memset(parser->header_buf, 0, WS_HEADER_LENGTH_MAX);
 }
@@ -53,7 +54,7 @@ int websocket_parser_append_message(const void *buf, size_t *n,
 	const unsigned char *buf_end = (const unsigned char *)buf + *n;
 
 	int header_length_min = parser->is_server ? WS_CLIENT_LENGTH_MIN :
-							WS_SERVER_LENGTH_MIN;
+							WS_CLIENT_LENGTH_MIN;
 
 //	if (parser->payload_length == 0) // receiving header
 	if (parser->nreceived < header_length_min)
@@ -162,7 +163,6 @@ int websocket_parser_parse(websocket_parser_t *parser)
 	{	
 		uint16_t *ptr = (uint16_t *)p;
 		parser->status_code = ntohs(*ptr);
-		parser->payload_data = p + 2;
 	}
 
 	websocket_parser_mask_data(parser);

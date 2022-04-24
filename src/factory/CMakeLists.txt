@@ -11,7 +11,8 @@ set(SRC
 	HttpTaskImpl.cc
 	WFResourcePool.cc
 	FileTaskImpl.cc
-	WebSocketTaskImpl.cc
+    WFChannel.cc
+    WebSocketChannelImpl.cc
 )
 
 if (NOT MYSQL STREQUAL "n")

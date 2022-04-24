@@ -34,6 +34,7 @@ set(TUTORIAL_LIST
 	tutorial-11-graph_task
 	tutorial-14-websocket_cli
 	tutorial-20-reducer
+	tutorial-22-ws_echo_server
 )
 
 if (APPLE)

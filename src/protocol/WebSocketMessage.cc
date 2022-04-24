@@ -16,9 +16,12 @@
   Author: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#include <cstddef>
+#include <cstring>
 #include <stdint.h>
 #include <stdlib.h>
 #include "WebSocketMessage.h"
+#include "websocket_parser.h"
 
 namespace protocol
 {
@@ -101,6 +104,22 @@ int WebSocketFrame::append(const void *buf, size_t *size)
 		websocket_parser_parse(this->parser);
 
 	return ret;
+}
+
+int WebSocketFrame::append_data(const void *buf, size_t size)
+{
+	int ret = 0;
+
+	if (this->parser->payload_length && this->parser->payload_data)
+	{
+		free(this->parser->payload_data);
+	}
+
+	this->parser->payload_data = (char *)malloc(size);
+	memcpy(this->parser->payload_data, buf, size);
+	this->parser->payload_length = size;
+
+    return ret;
 }
 
 int WebSocketFrame::encode(struct iovec vectors[], int max)
@@ -256,7 +275,6 @@ bool WebSocketFrame::set_data(const websocket_parser_t *parser)
 		free(this->parser->payload_data);
 	}
 
-//	this->parser->status_code = parser->status_code;
 	this->parser->payload_length = parser->payload_length;
 
 	if (this->parser->opcode == WebSocketFrameConnectionClose &&
@@ -280,6 +298,43 @@ bool WebSocketFrame::set_data(const websocket_parser_t *parser)
 	return ret;
 }
 
+
+int WebSocketFrame::get_status_code() {
+    return this->parser->status_code;
+}
+
+bool WebSocketFrame::set_status_code_data(int status_code, const char *data) {
+    return this->set_status_code_data(status_code, data, strlen(data));
+}
+
+bool WebSocketFrame::set_status_code_data(int status_code, const char *data, size_t size)
+{
+	unsigned char *p;
+
+	if (this->parser->opcode != WebSocketFrameConnectionClose)
+        return false;
+
+	if  (this->parser->payload_length && this->parser->payload_data)
+	{
+		free(this->parser->payload_data);
+	}
+
+	this->parser->status_code = status_code;
+	
+	p = (unsigned char *)malloc(size + 2);
+	if(!p)
+        return false;
+
+    this->parser->payload_length = size + 2;
+	this->parser->payload_data = p;
+    int2store(p, status_code);
+    p += 2;
+
+	memcpy(p, data, size);
+
+	return true;
+}
+
 bool WebSocketFrame::get_data(const char **data, size_t *size) const
 {
 	if (!this->parser->payload_length || !this->parser->payload_data)
@@ -287,7 +342,12 @@ bool WebSocketFrame::get_data(const char **data, size_t *size) const
 
 	*data = (char *)this->parser->payload_data;
 	*size = this->parser->payload_length;
-	return true;
+    
+    if (this->get_opcode() ==  WebSocketFrameConnectionClose) {
+        *data +=2;
+        *size -=2;
+    }
+    return true;
 }
 
 bool WebSocketFrame::finished() const

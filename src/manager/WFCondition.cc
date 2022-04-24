@@ -26,15 +26,14 @@ void WFCondition::signal(void *msg)
 {
 	WFCondWaitTask *task = NULL;
 
-	this->mutex->lock();
+	this->mutex.lock();
 	if (!list_empty(&this->wait_list))
 	{
 		task = list_entry(this->wait_list.next, WFCondWaitTask, list);
 		list_del(&task->list);
-		task->clear_locked();
 	}
 
-	this->mutex->unlock();
+	this->mutex.unlock();
 	if (task)
 		task->send(msg);
 }
@@ -45,18 +44,17 @@ void WFCondition::broadcast(void *msg)
 	struct list_head *pos, *tmp;
 	LIST_HEAD(tmp_list);
 
-	this->mutex->lock();
+	this->mutex.lock();
 	if (!list_empty(&this->wait_list))
 	{
 		list_for_each_safe(pos, tmp, &this->wait_list)
 		{
 			list_move_tail(pos, &tmp_list);
 			task = list_entry(pos, WFCondWaitTask, list);
-			task->clear_locked();
 		}
 	}
 
-	this->mutex->unlock();
+	this->mutex.unlock();
 	while (!list_empty(&tmp_list))
 	{
 		task = list_entry(tmp_list.next, WFCondWaitTask, list);
@@ -65,14 +63,30 @@ void WFCondition::broadcast(void *msg)
 	}
 }
 
+bool WFCondition::add_waittask(WFCondWaitTask *task) 
+{
+    this->mutex.lock();
+    list_add_tail(&task->list, &this->wait_list);
+    this->ref++;
+    this->mutex.unlock();
+    return true;
+}
+
+bool WFCondition::del_waittask(WFCondWaitTask *task)
+{
+    assert(task->cond == this);
+
+    this->mutex.lock();
+    list_del(&task->list);
+    this->ref--;
+    this->mutex.unlock();
+
+    return true;
+}
+
 WFCondition::~WFCondition()
 {
-	this->broadcast(NULL);
-
-	if (--*this->ref == 0)
-	{
-		delete this->mutex;
-		delete this->ref;
-	}
+	if (this->ref > 0)
+        this->broadcast(NULL);
 }
 

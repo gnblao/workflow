@@ -39,6 +39,8 @@ public:
 	int get_wait_timeout() const { return this->wait_timeout; }
 	void set_wait_timeout(int timeout) { this->wait_timeout = timeout; }
 
+    CommScheduler *get_scheduler() const {return scheduler;}
+
 public:
 	virtual void dispatch();
 

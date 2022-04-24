@@ -70,9 +70,9 @@ static constexpr struct WFGlobalSettings GLOBAL_SETTINGS_DEFAULT =
 	.dns_ttl_default	=	12 * 3600,
 	.dns_ttl_min		=	180,
 	.dns_threads		=	4,
-	.poller_threads		=	4,
-	.handler_threads	=	20,
-	.compute_threads	=	-1,
+	.poller_threads		=	1,
+	.handler_threads	=	1,
+	.compute_threads	=	1,
 	.resolv_conf_path	=	"/etc/resolv.conf",
 	.hosts_path			=	"/etc/hosts",
 };

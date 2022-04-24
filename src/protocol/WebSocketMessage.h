@@ -19,6 +19,7 @@
 #ifndef _WEBSOCKETMESSAGE_H_
 #define _WEBSOCKETMESSAGE_H_
 
+#include <cstddef>
 #include <string.h>
 #include <string>
 #include <stdint.h>
@@ -48,6 +49,9 @@ public:
 
 	bool finished() const;
 
+    int get_status_code();
+    bool set_status_code_data(int status_code, const char *data);
+    bool set_status_code_data(int status_code, const char *data, size_t size);
 public:
 	void set_client() { this->parser->is_server = 0; }
 	void set_server() { this->parser->is_server = 1; }
@@ -55,6 +59,7 @@ public:
 	bool set_data(const websocket_parser_t *parser);
 	uint32_t get_masking_key() const;
 
+	virtual int append_data(const void *buf, size_t size);
 private:
 	websocket_parser_t *parser;
 

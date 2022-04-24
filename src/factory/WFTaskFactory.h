@@ -25,6 +25,7 @@
 #include <time.h>
 #include <utility>
 #include <functional>
+#include "ProtocolMessage.h"
 #include "URIParser.h"
 #include "RedisMessage.h"
 #include "HttpMessage.h"
@@ -32,9 +33,11 @@
 #include "DnsMessage.h"
 #include "Workflow.h"
 #include "WFTask.h"
+#include "WFCondTask.h"
 #include "WFGraphTask.h"
 #include "EndpointParams.h"
 #include "WFAlgoTaskFactory.h"
+#include "WFChannel.h"
 
 // Network Client/Server tasks
 

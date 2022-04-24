@@ -19,34 +19,34 @@
 #ifndef _WFCONDTASK_H_
 #define _WFCONDTASK_H_
 
+#include <bits/types/struct_timespec.h>
+#include <cstdint>
 #include <mutex>
 #include <atomic>
+#include <utility>
 #include "list.h"
 #include "WFTask.h"
 #include "WFCondition.h"
-#include "WFTaskFactory.h"
-#include "WFCondTaskFactory.h"
-
-class __WFWaitTimerTask;
 
 class WFCondWaitTask : public WFMailboxTask
 {
-public:
-	virtual void clear_locked() { }
-
 protected:
 	virtual SubTask *done();
 
 private:
 	struct list_head list;
+    class WFCondition *cond;
 
 private:
 	void *msg;
 
 public:
-	WFCondWaitTask(wait_callback_t&& cb) :
+	explicit WFCondWaitTask(WFCondition *cond, wait_callback_t&& cb) :
 		WFMailboxTask(&this->msg, 1, std::move(cb))
-	{ }
+	{ 
+        this->cond = cond;
+        cond->add_waittask(this);
+    }
 
 	virtual ~WFCondWaitTask() { }
 
@@ -55,6 +55,82 @@ public:
 	friend class WFCondTaskFactory;
 	friend class __ConditionMap;
 };
+
+class WFTimedWaitTask;
+
+class __WFWaitTimerTask : public WFTimerTask
+{
+public:
+    void clear_wait_task() // must called within this mutex
+    {
+        this->wait_task = NULL;
+    }
+
+protected:
+    virtual int duration(struct timespec *value)
+    {
+        *value = this->timeout;
+        return 0;
+    }
+
+    virtual SubTask *done();
+
+protected:
+    struct timespec timeout;
+
+private:
+    WFTimedWaitTask *wait_task;
+
+public:
+    __WFWaitTimerTask(WFTimedWaitTask *wait_task,
+            const struct timespec *timeout,
+            CommScheduler *scheduler) :
+        WFTimerTask(scheduler, nullptr)
+    {
+        this->timeout = *timeout;
+        this->wait_task = wait_task;
+    }
+
+    virtual ~__WFWaitTimerTask() {}
+};
+
+class WFTimedWaitTask : public WFCondWaitTask
+{
+public:
+	void set_timer(__WFWaitTimerTask *timer) { this->timer = timer; }
+	virtual void count();
+	virtual void clear_timer();
+
+protected:
+	virtual void dispatch();
+	SubTask* done();
+
+private:
+    __WFWaitTimerTask *timer;
+
+public:
+	explicit WFTimedWaitTask(WFCondition *cond, wait_callback_t&& cb, const timespec *timeout) :
+		WFCondWaitTask(cond, std::move(cb))
+	{
+		this->timer = new __WFWaitTimerTask(this, timeout, WFGlobal::get_scheduler());
+	}
+
+    explicit WFTimedWaitTask(WFCondition *cond, wait_callback_t&& cb, int millisecond) :
+		WFCondWaitTask(cond, std::move(cb))
+	{
+       struct timespec time;
+
+       time.tv_sec = millisecond/1000;
+       time.tv_nsec = (millisecond%1000)*1000*1000;
+
+       WFTimedWaitTask(cond, std::move(cb), &time);
+	}
+
+
+	virtual ~WFTimedWaitTask();
+};
+
+
 
 #endif
 

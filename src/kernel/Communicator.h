@@ -27,11 +27,17 @@
 #include <stddef.h>
 #include <pthread.h>
 #include <openssl/ssl.h>
+#include <list> // c++ 
+#include <mutex> // c++ 
 #include "list.h"
 #include "poller.h"
 
+class CommMessageOut;
+struct CommConnEntry;
 class CommConnection
 {
+public:
+    CommConnEntry *entry = nullptr;
 protected:
 	virtual ~CommConnection() { }
 	friend class Communicator;
@@ -114,8 +120,14 @@ protected:
 	virtual int feedback(const void *buf, size_t size);
 
 private:
-	struct CommConnEntry *entry;
+	CommConnEntry *entry = nullptr;
 
+public:
+	long long seq{0}; /*only channel*/
+    class CommSession *session = nullptr;  /*only channel*/
+
+    void set_seq(long long seq) {this->seq = seq;}
+    long long get_seq() {return this->seq;}
 public:
 	virtual ~CommMessageIn() { }
 	friend class Communicator;
@@ -138,6 +150,7 @@ private:
 	virtual int first_timeout() { return 0; }	/* for client session only. */
 	virtual void handle(int state, int error) = 0;
 
+	virtual bool is_channel() {return false; }  /* for client channel only*/
 protected:
 	CommTarget *get_target() const { return this->target; }
 	CommConnection *get_connection() const { return this->conn; }
@@ -158,8 +171,13 @@ private:
 	int passive;
 
 public:
-	CommSession() { this->passive = 0; }
-	virtual ~CommSession();
+	CommSession():target(nullptr), conn(nullptr), out(nullptr), in(nullptr)
+    {
+        this->passive = 0; 
+        this->seq = 0; 
+    }
+	
+    virtual ~CommSession();
 	friend class Communicator;
 };
 
@@ -179,6 +197,7 @@ public:
 		*addrlen = this->addrlen;
 	}
 
+    virtual bool is_channel() {return false; }
 protected:
 	void set_ssl(SSL_CTX *ssl_ctx, int ssl_accept_timeout)
 	{
@@ -187,11 +206,12 @@ protected:
 	}
 
 	SSL_CTX *get_ssl_ctx() const { return this->ssl_ctx; }
-
+	
 private:
 	virtual CommSession *new_session(long long seq, CommConnection *conn) = 0;
 	virtual void handle_stop(int error) { }
 	virtual void handle_unbound() = 0;
+    
 
 private:
 	virtual int create_listen_fd()
@@ -240,49 +260,6 @@ public:
 	friend class Communicator;
 };
 
-class CommChannel : public CommSession
-{
-private:
-	virtual CommMessageIn *message_in() = 0;
-	virtual int keep_alive_timeout() { return -1; }
-	virtual int first_timeout() { return -1; }
-	virtual void handle_established() = 0;
-	virtual void handle_in(CommMessageIn *msg) = 0;
-	virtual void handle_terminated() { }
-	virtual void handle(int state, int error) = 0;
-
-private:
-	virtual CommMessageOut *message_out(); /* final */
-	CommMessageOut *get_message_out() { return NULL; } /* deleted */
-
-private:
-	struct CommConnEntry *entry;
-	friend class Communicator;
-};
-
-class TransSession : public CommSession
-{
-private:
-	virtual CommMessageOut *message_out()
-	{
-		errno = ENOSYS;
-		return NULL;
-	}
-
-	virtual CommMessageIn *message_in()
-	{
-		errno = ENOSYS;
-		return NULL;
-	}
-
-protected:
-	CommChannel *get_channel() const { return this->channel; }
-
-private:
-	CommChannel *channel;
-	friend class Communicator;
-};
-
 #define SS_STATE_COMPLETE	0
 #define SS_STATE_ERROR		1
 #define SS_STATE_DISRUPTED	2
@@ -312,17 +289,15 @@ public:
 
 	int request(CommSession *session, CommTarget *target);
 	int reply(CommSession *session);
+	
+    int channel_send_one(CommSession *session);
 
 	int push(const void *buf, size_t size, CommSession *session);
 
 	int bind(CommService *service);
 	void unbind(CommService *service);
 
-	int establish(CommChannel *channel, CommTarget *target);
-	int send(TransSession *session, CommChannel *channel);
-	void shutdown(CommChannel *channel);
-
-	int sleep(SleepSession *session);
+    int sleep(SleepSession *session);
 
 	int io_bind(IOService *service);
 	void io_unbind(IOService *service);
@@ -362,8 +337,8 @@ private:
 						   struct CommConnEntry *entry);
 
 	int send_message(struct CommConnEntry *entry);
-
-	struct CommConnEntry *get_idle_conn(CommTarget *target);
+	
+    struct CommConnEntry *get_idle_conn(CommTarget *target);
 
 	int request_idle_conn(CommSession *session, CommTarget *target);
 	int reply_idle_conn(CommSession *session, CommTarget *target);

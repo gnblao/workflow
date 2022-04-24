@@ -7,7 +7,6 @@ set(COMMON_KERNEL_HEADERS
 	src/kernel/SleepRequest.h
 	src/kernel/ExecRequest.h
 	src/kernel/IORequest.h
-	src/kernel/TransRequest.h
 	src/kernel/Executor.h
 	src/kernel/list.h
 	src/kernel/mpoller.h
@@ -68,8 +67,8 @@ set(INCLUDE_HEADERS
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h
+	src/server/WFWebSocketServer.h
 	src/client/WFMySQLConnection.h
-	src/client/WFWebSocketClient.h
 	src/client/WFDnsClient.h
 	src/manager/DnsCache.h
 	src/manager/WFGlobal.h
@@ -102,6 +101,9 @@ set(INCLUDE_HEADERS
 	src/factory/WFResourcePool.h
 	src/factory/WFChannel.h
 	src/factory/WFChannel.inl
+	src/factory/WFChannelMsg.h
+	src/factory/WFChannelRequest.h
+	src/factory/WebSocketChannelImpl.h
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDnsResolver.h
 	src/nameservice/WFServiceGovernance.h

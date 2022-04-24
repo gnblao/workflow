@@ -17,7 +17,6 @@ set(SRC
 	msgqueue.c
 	thrdpool.c
 	CommRequest.cc
-	TransRequest.cc
 	CommScheduler.cc
 	Communicator.cc
 	Executor.cc

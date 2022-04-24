@@ -16,19 +16,23 @@
   Author: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#include "workflow/WFGlobal.h"
 #include "workflow/WFFacilities.h"
-#include "workflow/WFWebSocketClient.h"
+#include "workflow/WebSocketChannelImpl.h"
 #include "workflow/WebSocketMessage.h"
 
+#include <cstring>
+#include <iostream>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
 #include "unistd.h"
 
 using namespace protocol;
 
-void process(WFWebSocketTask *task)
+void process(WSFrame *task)
 {
 	const char *data;
 	size_t size;
@@ -51,37 +55,25 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "USAGE: %s <url>\n	url format: ws://host:ip\n", argv[0]);
 		return 0;
 	}
+    
+    fprintf(stderr, "USAGE: %s <url>\n	url format: ws://host:ip\n", argv[0]);
+    fprintf(stderr, "USAGE: %s <url>\n	url format: ws://host:ip\n", argv[1]);
+    
+    ParsedURI uri;
+	if (URIParser::parse(argv[1], uri) < 0)
+		return -1;
 
-	WebSocketClient client(process);
-	client.init(argv[1]);
 
-	WFFacilities::WaitGroup wg(1);
-	auto *task = client.create_websocket_task([&wg, &client] (WFWebSocketTask *task)
-	{
-		fprintf(stderr, "send callback() state=%d error=%d\n",
-				task->get_state(), task->get_error());
+	auto client = new WebSocketChannelClient(nullptr, WFGlobal::get_scheduler());
+	client->set_uri(uri);
+    client->start();
 
-		if (task->get_state() != WFT_STATE_SUCCESS)
-		{
-			wg.done();
-			return;
-		}
-
-		auto *timer_task = WFTaskFactory::create_timer_task(3000000 /* 3s */, nullptr);
-		auto *close_task = client.create_close_task([&wg] (WFWebSocketTask *task) {
-			wg.done();
-		});
-
-		series_of(task)->push_back(timer_task);
-		series_of(task)->push_back(close_task);
-	});
-
-	WebSocketFrame *msg = task->get_msg();
-	msg->set_text_data("This is Workflow websocket client.");
-	task->start();
-
-	wg.wait();
-	client.deinit();
-
+    sleep(500);
+//    char dat[256]{0};
+//    while (1) {
+//        std::cin.getline(dat, 255);
+//
+//        client->websocket_text_send(dat, strlen(dat));
+//    }
 	return 0;
 }
