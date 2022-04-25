@@ -57,7 +57,7 @@ public:
 	const std::string get_sec_protocol() const { return this->sec_protocol;}
 	const std::string get_sec_version() const { return this->sec_version;}
     
-    void set_ping_interval(int millisecond) {this->ping_interval = millisecond;}
+    void set_ping_interval(int microsecond) {this->ping_interval = microsecond;}
     void set_auto_gen_mkey(bool b) {this->auto_gen_mkey = b;}
 
 	uint32_t gen_masking_key()

@@ -45,8 +45,8 @@ CommMessageIn *WFChannel::message_in()
 
 CommMessageOut *WFChannel::message_out()
 {
-    if (this->stop_flag)
-        return nullptr;
+    //if (this->stop_flag)
+    //    return nullptr;
     
     CommMessageOut *msg;
     std::lock_guard<std::mutex> lck(this->write_mutex);
@@ -95,7 +95,6 @@ SubTask *WFComplexChannelClient::done()
 	if (this->callback)
 		this->callback(this);
 
-    /* Defer deleting the task. */
     delete this;
 	return series->pop();
 }

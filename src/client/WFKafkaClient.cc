@@ -125,7 +125,7 @@ public:
 		this->broker_list = new KafkaBrokerList;
 		this->lock_status = new KafkaLockStatus;
 		this->broker_map = new KafkaBrokerMap;
-		this->meta_map = new std::map<std::string, MetaStatus>;
+		this->meta_map = new std::map<std::string, enum MetaStatus>;
 	}
 
 	~KafkaMember()
@@ -149,7 +149,7 @@ public:
 	KafkaBrokerList *broker_list;
 	KafkaBrokerMap *broker_map;
 	KafkaLockStatus *lock_status;
-	std::map<std::string, MetaStatus> *meta_map;
+	std::map<std::string, enum MetaStatus> *meta_map;
 
 private:
 	std::atomic<int> *ref;
@@ -325,7 +325,8 @@ private:
 
 	int get_node_id(const KafkaToppar *toppar);
 
-	MetaStatus get_meta_status();
+	enum MetaStatus get_meta_status();
+	void set_meta_status(enum MetaStatus status);
 
 	std::string get_userinfo() { return this->userinfo; }
 
@@ -594,6 +595,11 @@ void ComplexKafkaTask::kafka_meta_callback(__WFKafkaTask *task)
 	}
 	else
 	{
+		t->meta_list.rewind();
+		KafkaMeta *meta;
+		while ((meta = t->meta_list.get_next()) != NULL)
+			(*t->client->member->meta_map)[meta->get_topic()] = META_UNINIT;
+
 		t->state = WFT_STATE_TASK_ERROR;
 		t->error = WFT_ERR_KAFKA_META_FAILED;
 		t->finish = true;
@@ -669,22 +675,36 @@ void ComplexKafkaTask::kafka_parallel_callback(const ParallelWork *pwork)
 {
 	ComplexKafkaTask *t = (ComplexKafkaTask *)pwork->get_context();
 	t->finish = true;
-	t->state = WFT_STATE_SUCCESS;
+	t->state = WFT_STATE_TASK_ERROR;
 	t->error = 0;
 
 	std::pair<int, int> *state_error;
-
+	bool flag = false;
+	int error = 0;
 	for (size_t i = 0; i < pwork->size(); i++)
 	{
 		state_error = (std::pair<int, int> *)pwork->series_at(i)->get_context();
 		if (state_error->first != WFT_STATE_SUCCESS)
 		{
-			t->state = state_error->first;
-			t->error = state_error->second;
+			if (!flag)
+			{
+				flag = true;
+				t->lock_status.get_mutex()->lock();
+				t->set_meta_status(META_UNINIT);
+				t->lock_status.get_mutex()->unlock();
+			}
+			error = state_error->second;
+		}
+		else
+		{
+			t->state = WFT_STATE_SUCCESS;
 		}
 
 		delete state_error;
 	}
+
+	if (t->state != WFT_STATE_SUCCESS)
+		t->error = error;
 }
 
 void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
@@ -698,20 +718,14 @@ void ComplexKafkaTask::kafka_process_toppar_offset(KafkaToppar *task_toppar)
 		if (strcmp(toppar->get_topic(), task_toppar->get_topic()) == 0 &&
 			toppar->get_partition() == task_toppar->get_partition())
 		{
-			if (task_toppar->get_error() == KAFKA_OFFSET_OUT_OF_RANGE &&
-				task_toppar->get_offset() < task_toppar->get_low_watermark())
-			{
-				toppar->set_offset(-1);
-			}
-			else if (task_toppar->get_error() == KAFKA_NONE)
-			{
+			if (task_toppar->get_error() == KAFKA_NONE &&
+				!task_toppar->reach_high_watermark())
 				toppar->set_offset(task_toppar->get_offset() + 1);
-			}
 			else
 				toppar->set_offset(task_toppar->get_offset());
 
-			if (task_toppar->get_low_watermark() > 0)
-				toppar->set_low_watermark(task_toppar->get_low_watermark());
+			toppar->set_low_watermark(task_toppar->get_low_watermark());
+			toppar->set_low_watermark(task_toppar->get_high_watermark());
 
 			break;
 		}
@@ -728,7 +742,8 @@ void ComplexKafkaTask::kafka_move_task_callback(__WFKafkaTask *task)
 
 	KafkaTopparList *toppar_list = task->get_resp()->get_toppar_list();
 
-	if (task->get_resp()->get_api_type() == Kafka_Fetch)
+	if (task->get_state() == WFT_STATE_SUCCESS &&
+		task->get_resp()->get_api_type() == Kafka_Fetch)
 	{
 		toppar_list->rewind();
 		KafkaToppar *task_toppar;
@@ -787,11 +802,11 @@ void ComplexKafkaTask::parse_query()
 	}
 }
 
-MetaStatus ComplexKafkaTask::get_meta_status()
+enum MetaStatus ComplexKafkaTask::get_meta_status()
 {
 	this->meta_list.rewind();
 	KafkaMeta *meta;
-	MetaStatus ret = META_INITED;
+	enum MetaStatus ret = META_INITED;
 	while ((meta = this->meta_list.get_next()) != NULL)
 	{
 		switch((*this->client->member->meta_map)[meta->get_topic()])
@@ -812,6 +827,14 @@ MetaStatus ComplexKafkaTask::get_meta_status()
 	}
 
 	return ret;
+}
+
+void ComplexKafkaTask::set_meta_status(enum MetaStatus status)
+{
+	this->client_meta_list.rewind();
+	KafkaMeta *meta;
+	while ((meta = this->client_meta_list.get_next()) != NULL)
+		(*this->client->member->meta_map)[meta->get_topic()] = status;
 }
 
 void ComplexKafkaTask::dispatch()

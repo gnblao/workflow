@@ -56,13 +56,9 @@ int main(int argc, char *argv[])
 		return 0;
 	}
     
-    fprintf(stderr, "USAGE: %s <url>\n	url format: ws://host:ip\n", argv[0]);
-    fprintf(stderr, "USAGE: %s <url>\n	url format: ws://host:ip\n", argv[1]);
-    
     ParsedURI uri;
 	if (URIParser::parse(argv[1], uri) < 0)
 		return -1;
-
 
 	auto client = new WebSocketChannelClient(nullptr, WFGlobal::get_scheduler());
 	client->set_uri(uri);

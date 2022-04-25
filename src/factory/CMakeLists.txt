@@ -7,6 +7,7 @@ set(SRC
 	Workflow.cc
 	WFTaskFactory.cc
 	WFCondTaskFactory.cc
+	WFCondTask.cc
 	WFResourcePool.cc
 	HttpTaskImpl.cc
 	WFResourcePool.cc

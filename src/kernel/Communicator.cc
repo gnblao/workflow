@@ -163,6 +163,36 @@ static int __send_vectors(struct iovec vectors[], int cnt,
 	return 0;
 }
 
+#define SSL_WRITE_BUFSIZE	8192
+
+static int __ssl_writev(SSL *ssl, const struct iovec vectors[], int cnt)
+{
+	char buf[SSL_WRITE_BUFSIZE];
+	size_t nleft = SSL_WRITE_BUFSIZE;
+	char *p = buf;
+	size_t n;
+	int i;
+
+	if (vectors[0].iov_len >= SSL_WRITE_BUFSIZE || cnt == 1)
+		return SSL_write(ssl, vectors[0].iov_base, vectors[0].iov_len);
+
+	for (i = 0; i < cnt; i++)
+	{
+		if (vectors[i].iov_len <= nleft)
+			n = vectors[i].iov_len;
+		else
+			n = nleft;
+
+		memcpy(p, vectors[i].iov_base, n);
+		p += n;
+		nleft -= n;
+		if (nleft == 0)
+			break;
+	}
+
+	return SSL_write(ssl, buf, p - buf);
+}
+
 int CommTarget::init(const struct sockaddr *addr, socklen_t addrlen,
 					 int connect_timeout, int response_timeout)
 {
@@ -281,6 +311,17 @@ int CommService::drain(int max)
 	pthread_mutex_unlock(&this->mutex);
 	errno = errno_bak;
 	return cnt;
+}
+
+inline void CommService::incref()
+{
+	__sync_add_and_fetch(&this->ref, 1);
+}
+
+inline void CommService::decref()
+{
+	if (__sync_sub_and_fetch(&this->ref, 1) == 0)
+		this->handle_unbound();
 }
 
 class CommServiceTarget : public CommTarget
@@ -572,7 +613,7 @@ int Communicator::send_message(struct CommConnEntry *entry)
 			return cnt;
 	}
 
-	return this->send_message_async(end - cnt, cnt, entry);
+    return this->send_message_async(end - cnt, cnt, entry);
 }
 
 void Communicator::handle_incoming_request(struct poller_result *res)

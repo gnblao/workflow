@@ -35,6 +35,7 @@ protected:
 
 private:
 	struct list_head list;
+protected:
     class WFCondition *cond;
 
 private:
@@ -51,6 +52,7 @@ public:
 	virtual ~WFCondWaitTask() { }
 
 	friend class __WFWaitTimerTask;
+	friend class WFTimeesWaitTask;
 	friend class WFCondition;
 	friend class WFCondTaskFactory;
 	friend class __ConditionMap;

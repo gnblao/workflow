@@ -42,6 +42,7 @@ public:
         channel->get_req()->set_size_limit(this->params.request_size_limit);
         channel->set_sec_protocol("");
         channel->set_auto_gen_mkey(true);
+        channel->set_ping_interval(10*1000*1000);
         
         return channel;
     }

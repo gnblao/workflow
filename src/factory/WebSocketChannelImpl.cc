@@ -187,7 +187,6 @@ int WebSocketTools::process_ping(protocol::WebSocketFrame *ping = nullptr)
 
     if (ping){
         msg->set_data(ping->get_parser());
-        msg->set_masking_key(ping->get_masking_key());  
     }
 
     task->start();
