@@ -1880,19 +1880,6 @@ void Communicator::channel_shutdown(CommSession *channel)
 
     entry->error = 0;
 	mpoller_del(entry->sockfd, this->mpoller);
-    //entry->state = CONN_STATE_CLOSING;
-    //entry->is_channel = 3;
-	//if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
-	//{
-	//	if (!entry->service)
-    //        entry->target->release(0);
-	//	
-    //    channel->handle(CS_STATE_SHUTDOWN, entry->error);
-	//	this->release_conn(entry);
-	//	
-    //    if (entry->service)
-	//		((CommServiceTarget *)target)->decref();
-	//}
     pthread_mutex_unlock(mutex);
 
 	errno = errno_bak;
