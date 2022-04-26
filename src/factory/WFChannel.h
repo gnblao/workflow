@@ -1,21 +1,9 @@
-/*
-  Copyright (c) 2021 Sogou, Inc.
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
-
-  Author: Li Yingxin (liyingxin@sogou-inc.com)
-          Xie Han (xiehan@sogou-inc.com)
-*/
+/*************************************************************************
+    > File Name: WFChannelMsg.h
+    > Author: gnblao 
+    > Mail: gnblao 
+    > Created Time: 2022年04月17日 星期日 14时01分32秒
+ ************************************************************************/
 
 #ifndef _WFCHANNEL_H_
 #define _WFCHANNEL_H_
@@ -79,6 +67,7 @@ public:
 	
     virtual int channel_close() {
         this->stop_flag.exchange(true);
+        this->get_scheduler()->channel_shutdown(this);
         return 0;
     }
 
@@ -123,7 +112,9 @@ public:
         int ret;
         if (this->stop_flag)
             return -1;
+        
         std::cout << __func__ << " ---seq:" << seq << std::endl;
+        
         std::lock_guard<std::mutex> lck(this->in_mutex);
         assert(this->in_list_seq <= seq);
 
@@ -185,15 +176,19 @@ public:
     
     virtual int channel_msg_out(MSG *out)
     {
-        //if (this->stop_flag)
-        //    return -1;
+        if (this->stop_flag)
+            return -1;
 
         {
             std::lock_guard<std::mutex> lck(this->write_mutex);
             this->write_list.push_back(out);
         }
         
-        this->get_scheduler()->channel_send_one(this);
+        int ret;
+        ret = this->get_scheduler()->channel_send_one(this);
+        if (ret < 0) 
+            this->channel_close();
+
         return 0;
     }
 

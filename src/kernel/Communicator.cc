@@ -1837,8 +1837,8 @@ int Communicator::channel_send_one(CommSession *session)
         {
             entry->error = errno;
             mpoller_del(entry->sockfd, this->mpoller);
-            entry->state = CONN_STATE_ERROR;
-            ret = 1;
+            //entry->state = CONN_STATE_ERROR;
+            //ret = 1;
         } else if (ret == 0) {
             entry->is_channel = 1;
         }
@@ -1848,6 +1848,54 @@ int Communicator::channel_send_one(CommSession *session)
     }
 
     return 1;
+}
+
+void Communicator::channel_shutdown(CommSession *channel)
+{
+	struct CommConnEntry *entry;
+	CommTarget *target = channel->target;
+    pthread_mutex_t *mutex;
+
+    if (!channel->is_channel()) {
+        return;
+    }
+    
+    entry = channel->get_connection()->entry;
+	if (!entry)
+        return;
+
+    if (entry->service)
+        mutex = &target->mutex;
+    else 
+        mutex = &entry->mutex;
+  
+    pthread_mutex_lock(mutex);
+
+    if (entry->state != CONN_STATE_ESTABLISHED) {
+        pthread_mutex_unlock(mutex);
+        return;
+    }
+    
+    int errno_bak = errno;
+
+    entry->error = 0;
+	mpoller_del(entry->sockfd, this->mpoller);
+    //entry->state = CONN_STATE_CLOSING;
+    //entry->is_channel = 3;
+	//if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
+	//{
+	//	if (!entry->service)
+    //        entry->target->release(0);
+	//	
+    //    channel->handle(CS_STATE_SHUTDOWN, entry->error);
+	//	this->release_conn(entry);
+	//	
+    //    if (entry->service)
+	//		((CommServiceTarget *)target)->decref();
+	//}
+    pthread_mutex_unlock(mutex);
+
+	errno = errno_bak;
 }
 
 int Communicator::push(const void *buf, size_t size, CommSession *session)

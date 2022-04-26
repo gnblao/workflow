@@ -283,6 +283,7 @@ public:
 	int reply(CommSession *session);
 	
     int channel_send_one(CommSession *session);
+    void channel_shutdown(CommSession *session);
 
 	int push(const void *buf, size_t size, CommSession *session);
 

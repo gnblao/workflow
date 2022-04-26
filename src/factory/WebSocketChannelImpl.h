@@ -109,6 +109,7 @@ public:
     WebSocketTools(WFChannel *channel) {
         assert(channel);
         this->channel = channel;
+        this->handshake_status = WS_HANDSHAKE_UNDEFINED;
     }
     
     virtual ~WebSocketTools() {}
@@ -120,7 +121,14 @@ protected:
 	std::mt19937 gen;
 	std::string sec_protocol{"chat"}; // Sec-WebSocket-Protocol
 	std::string sec_version{"13"}; // Sec-WebSocket-Version
-
+    
+    enum {
+        WS_HANDSHAKE_UNDEFINED,
+        WS_HANDSHAKE_OPEN,
+        WS_HANDSHAKE_CLOSING,
+        WS_HANDSHAKE_CLOSED,
+    };
+    int handshake_status;
 private:
     WFChannel *channel;
 };
@@ -150,6 +158,7 @@ public:
             }
         } else {
             this->process_header_rsp((protocol::HttpResponse*)message);
+            this->handshake_status = WS_HANDSHAKE_OPEN;
         }
 
         return 0;
@@ -215,7 +224,7 @@ public:
                 break;
             case WebSocketFrameConnectionClose:
                 this->send_close(1002, "you error!!!!");
-                this->channel_close();
+                //this->channel_close();
                 break;
             }
         } else {

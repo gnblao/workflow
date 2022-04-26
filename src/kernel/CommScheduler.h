@@ -182,6 +182,10 @@ public:
 		return this->comm.channel_send_one(session);
 	}
 
+	void channel_shutdown(CommSession *session)
+	{
+		return this->comm.channel_shutdown(session);
+	}
 public:
 	int is_handler_thread() const
 	{
