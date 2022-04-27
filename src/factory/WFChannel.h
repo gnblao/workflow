@@ -60,6 +60,7 @@ private:
 
 public:
     std::atomic_bool stop_flag{false};
+    std::atomic_bool channel_msg_out_stop_flag{false};
 	
     virtual WFChannelMsgSession *new_channel_msg_session() {return nullptr;};
     long long get_channel_msg_seq() {return this->msg_seq;}
@@ -176,9 +177,12 @@ public:
     
     virtual int channel_msg_out(MSG *out)
     {
-        if (this->stop_flag)
-            return -1;
+        //if (this->stop_flag)
+        //    return -1;
 
+        if (this->channel_msg_out_stop_flag)
+            return -1;
+        
         {
             std::lock_guard<std::mutex> lck(this->write_mutex);
             this->write_list.push_back(out);
@@ -186,8 +190,10 @@ public:
         
         int ret;
         ret = this->get_scheduler()->channel_send_one(this);
-        if (ret < 0) 
+        if (ret < 0) { 
             this->channel_close();
+            this->channel_msg_out_stop_flag = true; 
+        }
 
         return 0;
     }

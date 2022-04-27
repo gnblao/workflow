@@ -17,6 +17,7 @@
 #include <iostream>
 #include <type_traits>
 #include "Communicator.h"
+#include "ProtocolMessage.h"
 #include "SubTask.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
@@ -148,12 +149,18 @@ public:
                 this->process_ping(msg);
                 break;
             case WebSocketFramePong:
+                this->process_pong(msg);
                 break;
             case WebSocketFrameText:
+                this->process_text(msg);
+                break;
             case WebSocketFrameBinary:
+                this->process_binary(msg);
                 break;
             case WebSocketFrameConnectionClose:
                 this->process_close(msg);
+                break;
+            default:
                 break;
             }
         } else {
@@ -223,8 +230,11 @@ public:
                 this->process_pong(msg);
                 break;
             case WebSocketFrameConnectionClose:
-                this->send_close(1002, "you error!!!!");
+                //this->send_close(1002, "you error!!!!");
+                this->process_close(msg);
                 //this->channel_close();
+                break;
+            default:
                 break;
             }
         } else {

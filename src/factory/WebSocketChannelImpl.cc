@@ -9,10 +9,13 @@
 #include <functional>
 #include <iostream>
 #include "HttpMessage.h"
+#include "ProtocolMessage.h"
 #include "SubTask.h"
+#include "WFChannelMsg.h"
 #include "WFTask.h"
 #include "WFGlobal.h"
 #include "WFChannel.h"
+#include "WebSocketMessage.h"
 #include "Workflow.h"
 #include "WFTaskFactory.h"
 #include "WebSocketChannelImpl.h"
@@ -142,6 +145,9 @@ int WebSocketTools::send_close(int status_code, std::string str)
     msg->set_status_code_data(status_code, str.c_str(), str.length());
 
     task->start();
+    
+    this->handshake_status = WS_HANDSHAKE_CLOSING;
+
     return 0;
 }
 
@@ -189,8 +195,7 @@ int WebSocketTools::process_ping(protocol::WebSocketFrame *ping = nullptr)
         msg->set_data(ping->get_parser());
     }
 
-    task->start();
-    //series_of(dynamic_cast<WSFrame *>(ping->session))->push_back(task);
+    series_of(dynamic_cast<WSFrame *>(ping->session))->push_back(task);
     return 0;
 }
 
@@ -210,10 +215,15 @@ int WebSocketTools::process_close(protocol::WebSocketFrame *in)
     if (in){
         msg->set_data(in->get_parser());
     }
-    
+   
+    if (this->handshake_status != WS_HANDSHAKE_CLOSING)
+        this->handshake_status = WS_HANDSHAKE_CLOSING;
+    else { 
+        this->handshake_status = WS_HANDSHAKE_CLOSED;
+        task->set_callback([this] (WFChannelMsgBase<protocol::WebSocketFrame>*) { this->channel->channel_close();});
+    }
 
-    task->start();
-    //series_of(dynamic_cast<WSFrame *>(ping->session))->push_back(task);
+    series_of(dynamic_cast<WSFrame *>(in->session))->push_back(task);
     return 0;
 }
 
@@ -232,16 +242,16 @@ int WebSocketTools::process_text(protocol::WebSocketFrame *in)
     }
     
     const char *data;
-    size_t len;
+    size_t len = 0;
     if (in){
         if (in->get_data(&data, &len)) {
             std::cout << "-----data len:" << len << std::endl; 
             msg->set_text_data(data, len, true);
         }
     }
-
-    task->start();
-    //series_of(dynamic_cast<SubTask *>(in->session))->push_back(task);
+    
+    msg->set_fin(true);
+    series_of(dynamic_cast<WSFrame *>(in->session))->push_back(task);
     return 0;
 }
 
@@ -311,8 +321,8 @@ int WebSocketChannelServer::process_header_req(protocol::HttpRequest *req)
         }
     }
 
-    task->start();
-    //series_of(dynamic_cast<WSFrame *>(req->session))->push_back(task);
+    //task->start();
+    series_of(dynamic_cast<WSHearderReq *>(req->session))->push_back(task);
     return 0;
 }
 

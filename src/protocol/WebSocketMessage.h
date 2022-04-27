@@ -42,7 +42,10 @@ public:
 	bool set_text_data(const char *data);
 	bool set_text_data(const char *data, size_t size, bool fin);
 
-	bool set_binary_data(const char *data, size_t size);
+	void set_fin(bool fin) {this->parser->fin = fin;};
+	bool get_fin() {return this->parser->fin;};
+	
+    bool set_binary_data(const char *data, size_t size);
 	bool set_binary_data(const char *data, size_t size, bool fin);
 
 	bool get_data(const char **data, size_t *size) const;
