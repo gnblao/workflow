@@ -119,6 +119,9 @@ protected:
 	/* Send small packet while receiving. Call only in append(). */
 	virtual int feedback(const void *buf, size_t size);
 
+	/* In append(), reset the begin time of receiving to current time. */
+	virtual void renew();
+
 private:
 	CommConnEntry *entry = nullptr;
 
@@ -178,6 +181,7 @@ public:
     }
 	
     virtual ~CommSession();
+	friend class CommMessageIn;
 	friend class Communicator;
 };
 
