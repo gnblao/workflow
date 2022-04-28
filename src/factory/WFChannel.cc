@@ -30,16 +30,19 @@ CommMessageIn *WFChannel::message_in()
         return msg;
 
     session = this->new_channel_msg_session();
-    if (session) {
-        msg = session->get_msg();
-        session->set_state(WFC_MSG_STATE_IN);
+    if (!session) {
+        return nullptr;
     }
 
-    if (msg) {
-        msg->seq = this->msg_seq++;
-        msg->session = session;
+    msg = session->get_msg();
+    session->set_state(WFC_MSG_STATE_IN);
+    
+    if (!msg) {
+        return nullptr;
     }
 
+    msg->seq = this->msg_seq++;
+    msg->session = session;
     return msg;
 }
 

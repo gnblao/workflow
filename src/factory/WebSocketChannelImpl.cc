@@ -178,7 +178,7 @@ int WebSocketTools::send_binary(const char *data, size_t size)
     return 0;
 }
 
-int WebSocketTools::process_ping(protocol::WebSocketFrame *ping = nullptr) 
+int WebSocketTools::process_ping(protocol::WebSocketFrame *in = nullptr) 
 {
     auto *task = new WSFrame(this->channel, nullptr);
 
@@ -191,11 +191,11 @@ int WebSocketTools::process_ping(protocol::WebSocketFrame *ping = nullptr)
         msg->set_client();
     }
 
-    if (ping){
-        msg->set_data(ping->get_parser());
+    if (in){
+        msg->set_data(in->get_parser());
     }
-
-    series_of(dynamic_cast<WSFrame *>(ping->session))->push_back(task);
+    
+    series_of(dynamic_cast<WSFrame *>(in->session))->push_back(task);
     return 0;
 }
 
@@ -251,6 +251,7 @@ int WebSocketTools::process_text(protocol::WebSocketFrame *in)
     }
     
     msg->set_fin(true);
+    
     series_of(dynamic_cast<WSFrame *>(in->session))->push_back(task);
     return 0;
 }
@@ -321,7 +322,6 @@ int WebSocketChannelServer::process_header_req(protocol::HttpRequest *req)
         }
     }
 
-    //task->start();
     series_of(dynamic_cast<WSHearderReq *>(req->session))->push_back(task);
     return 0;
 }

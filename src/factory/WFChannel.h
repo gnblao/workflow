@@ -111,6 +111,8 @@ public:
     virtual int channel_fanout_msg_in(MSG *in, long long seq)
 	{
         int ret;
+        CommSession *cur_session = in->session;
+
         if (this->stop_flag)
             return -1;
         
@@ -132,7 +134,8 @@ public:
         while (in_list.size()) {
             MSG *msg = in_list.front();
             in_list.pop_front();
-
+            
+            msg->session = cur_session;
             ret = process_msg(msg);
             delete msg;
             if (ret < 0)
