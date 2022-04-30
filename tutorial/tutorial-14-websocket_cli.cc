@@ -68,10 +68,11 @@ int main(int argc, char *argv[])
 
     std::string s;
     while (1) {
-        std::cout << std::endl;
+        sleep(1);
         std::cout << "please enter your context:";
         std::cin >> s;
-    
+        //std::cout << std::endl;
+         
         client->send_text(s.c_str(), s.length());
     }
 	return 0;

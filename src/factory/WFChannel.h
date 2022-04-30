@@ -32,6 +32,7 @@ enum {
         WFC_MSG_STATE_IN,
         WFC_MSG_STATE_OUT,
         WFC_MSG_STATE_OUT_LIST,
+        WFC_MSG_STATE_ERROR,
 };
 
 class WFChannelMsgSession :public CommSession {
@@ -61,7 +62,6 @@ private:
 
 public:
     std::atomic_bool stop_flag{false};
-    std::atomic_bool channel_msg_out_stop_flag{false};
 	
     virtual WFChannelMsgSession *new_channel_msg_session() {return nullptr;};
     long long get_channel_msg_seq() {return this->msg_seq;}
@@ -78,7 +78,7 @@ public:
     }
     void decref() {
         if (--this->ref == 0)
-            this->done();
+            delete this;
     }
     
     virtual bool is_server() {return false;}
@@ -183,12 +183,11 @@ public:
     
     virtual int channel_msg_out(MSG *out, int flag = WFC_MSG_STATE_OUT)
     {
-        //if (this->stop_flag)
-        //    return -1;
-
-        if (this->channel_msg_out_stop_flag)
-            return -1;
+        int ret;
         
+        if (this->stop_flag)
+            return -1;
+
         {
             std::lock_guard<std::mutex> lck(this->write_mutex);
             this->write_list.push_back(out);
@@ -197,13 +196,9 @@ public:
         if (flag == WFC_MSG_STATE_OUT_LIST)
             return 0;
 
-        //std::cout << __func__ << " seq :"  << out->get_seq()<< std::endl;        
-        
-        int ret;
         ret = this->get_scheduler()->channel_send_one(this);
         if (ret < 0) { 
             this->channel_close();
-            this->channel_msg_out_stop_flag = true; 
         }
 
         return 0;
@@ -220,7 +215,6 @@ public:
 
 private:
     void __clear() {
-        this->stop_flag = true;
         CommMessageIn *in = this->get_message_in();
         if (in) {
             if (in->session) {
@@ -234,22 +228,15 @@ private:
 protected:
     virtual SubTask *done()
 	{
+        this->stop_flag = true;
         this->__clear();
-		if (--this->ref != 0)
-            return nullptr;
 
         SeriesWork *series = series_of(this);
-
-		if (this->state == WFT_STATE_SYS_ERROR && this->error < 0)
-		{
-            this->state = WFT_STATE_SSL_ERROR;
-            this->error = -this->error;
-		}
-
 		if (this->callback)
 			this->callback(this);
 
-		delete this;
+        this->decref();
+		//delete this;
 		return series->pop();
 	}
     
@@ -280,8 +267,6 @@ protected:
         for (auto x : write_list) {
             delete x;
         }
-
-        this->__clear();
 
         CommMessageOut *out = this->get_message_out();
         delete out;

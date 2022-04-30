@@ -219,7 +219,7 @@ int WebSocketTools::process_close(protocol::WebSocketFrame *in)
             msg->set_data(in->get_parser());
         }
 
-        task->set_callback([this] (WFChannelMsgBase<protocol::WebSocketFrame>*) { this->channel->channel_close();});
+        task->set_callback([this] (WFChannelMsg<protocol::WebSocketFrame>*) { this->channel->channel_close();});
         series_of(dynamic_cast<WSFrame *>(in->session))->push_back(task);
     }
 

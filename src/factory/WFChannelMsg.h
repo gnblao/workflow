@@ -79,11 +79,6 @@ public:
        return m;
     }
 
-	void set_callback(std::function<void (WFChannelMsgBase<MSG> *)> cb)
-	{
-		this->callback = std::move(cb);
-	}
-
 protected:
     int state;
 	int error;
@@ -93,8 +88,6 @@ private:
 
 protected:
 	WFChannel *channel;
-
-	std::function<void (WFChannelMsgBase<MSG> *)> callback;
 
 private:
 	virtual CommMessageOut *message_out()
@@ -109,6 +102,20 @@ private:
 		return NULL;
 	}
 
+};
+
+template<typename MSG>
+class WFChannelMsg : public WFChannelMsgBase<MSG>
+{
+public:
+    std::function<void (WFChannelMsg<MSG> *)> process;
+	std::function<void (WFChannelMsg<MSG> *)> callback;
+
+	void set_callback(std::function<void (WFChannelMsg<MSG> *)> cb)
+	{
+		this->callback = std::move(cb);
+	}
+
 protected:
     virtual SubTask *done()
 	{
@@ -121,20 +128,6 @@ protected:
 		return series->pop();
 	}
 
-};
-
-template<typename MSG>
-class WFChannelMsg : public WFChannelMsgBase<MSG>
-{
-public:
-    std::function<void (WFChannelMsg<MSG> *)> process;
-
-protected:
-	virtual SubTask *done()
-	{
-        return this->WFChannelMsgBase<MSG>::done(); 
-	}
-	
     virtual void dispatch() {
         int ret = -1;
         int state;
@@ -150,8 +143,10 @@ protected:
         else
             ret = channel->channel_msg_out(msg);
 
-        if (ret < 0)
+        if (ret < 0) {
+            this->set_state(WFC_MSG_STATE_ERROR);    
             delete msg;
+        }
 
         this->subtask_done();
     }
