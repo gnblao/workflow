@@ -24,6 +24,7 @@
 #include <openssl/sha.h>
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
+#include <string>
 
 
 static int __base64decode(std::string& base64, std::string &src) {
@@ -199,65 +200,29 @@ int WebSocketTools::process_ping(protocol::WebSocketFrame *in = nullptr)
     return 0;
 }
 
-int WebSocketTools::process_pong(protocol::WebSocketFrame *msg) 
-{
-    return 0;
-}
-
 int WebSocketTools::process_close(protocol::WebSocketFrame *in) 
 {
-    auto *task = new WSFrame(this->channel, nullptr);
-
-    auto msg = task->get_msg();
-    msg->set_opcode(WebSocketFrameConnectionClose);
-    msg->set_masking_key(this->gen_masking_key());  
-
-    if (in){
-        msg->set_data(in->get_parser());
-    }
-   
-    if (this->handshake_status != WS_HANDSHAKE_CLOSING)
-        this->handshake_status = WS_HANDSHAKE_CLOSING;
-    else { 
+    if (this->handshake_status == WS_HANDSHAKE_CLOSING)
+    {
         this->handshake_status = WS_HANDSHAKE_CLOSED;
-        task->set_callback([this] (WFChannelMsgBase<protocol::WebSocketFrame>*) { this->channel->channel_close();});
-    }
+        this->channel->channel_close();   
+    } else { 
+        this->handshake_status = WS_HANDSHAKE_CLOSING;
 
-    series_of(dynamic_cast<WSFrame *>(in->session))->push_back(task);
-    return 0;
-}
+        auto *task = new WSFrame(this->channel, nullptr);
 
-int WebSocketTools::process_text(protocol::WebSocketFrame *in) 
-{
-    auto *task = new WSFrame(this->channel, nullptr);
-
-    auto msg = task->get_msg();
-    msg->set_opcode(WebSocketFrameText);
-
-    if (this->channel->is_server()) {
-        msg->set_server();
-    } else {
+        auto msg = task->get_msg();
+        msg->set_opcode(WebSocketFrameConnectionClose);
         msg->set_masking_key(this->gen_masking_key());  
-        msg->set_client();
-    }
-    
-    const char *data;
-    size_t len = 0;
-    if (in){
-        if (in->get_data(&data, &len)) {
-            std::cout << "-----data len:" << len << std::endl; 
-            msg->set_text_data(data, len, true);
-        }
-    }
-    
-    msg->set_fin(true);
-    
-    series_of(dynamic_cast<WSFrame *>(in->session))->push_back(task);
-    return 0;
-}
 
-int WebSocketTools::process_binary(protocol::WebSocketFrame *msg) 
-{
+        if (in){
+            msg->set_data(in->get_parser());
+        }
+
+        task->set_callback([this] (WFChannelMsgBase<protocol::WebSocketFrame>*) { this->channel->channel_close();});
+        series_of(dynamic_cast<WSFrame *>(in->session))->push_back(task);
+    }
+
     return 0;
 }
 
@@ -287,7 +252,51 @@ int WebSocketChannelClient::send_header_req(WFChannel*)
     if (this->get_sec_version().length())
         req->add_header_pair(WS_HTTP_SEC_VERSION_K, this->get_sec_version());
 
+    task->set_state(WFC_MSG_STATE_OUT_LIST);
     task->start();
+    return 0;
+}
+
+
+int WebSocketChannelClient::process_text(protocol::WebSocketFrame *in) 
+{
+    const char *data;
+    size_t len = 0;
+    if (in){
+        if (in->get_data(&data, &len)) {
+            std::cout << std::string(data, len)  << std::endl; 
+        }
+    }
+ 
+    return 0;
+}
+
+int WebSocketChannelServer::process_text(protocol::WebSocketFrame *in) 
+{
+    auto *task = new WSFrame(this, nullptr);
+
+    auto msg = task->get_msg();
+    msg->set_opcode(WebSocketFrameText);
+
+    if (this->is_server()) {
+        msg->set_server();
+    } else {
+        msg->set_masking_key(this->gen_masking_key());  
+        msg->set_client();
+    }
+    
+    const char *data;
+    size_t len = 0;
+    if (in){
+        if (in->get_data(&data, &len)) {
+            std::cout << "-----data len:" << len << std::endl; 
+            msg->set_text_data(data, len, true);
+        }
+    }
+    
+    msg->set_fin(true);
+    
+    series_of(dynamic_cast<WSFrame *>(in->session))->push_back(task);
     return 0;
 }
 

@@ -62,14 +62,17 @@ int main(int argc, char *argv[])
 
 	auto client = new WebSocketChannelClient(nullptr, WFGlobal::get_scheduler());
 	client->set_uri(uri);
+    client->set_keep_alive(-1);
+
     client->start();
 
-    sleep(500);
-//    char dat[256]{0};
-//    while (1) {
-//        std::cin.getline(dat, 255);
-//
-//        client->websocket_text_send(dat, strlen(dat));
-//    }
+    std::string s;
+    while (1) {
+        std::cout << std::endl;
+        std::cout << "please enter your context:";
+        std::cin >> s;
+    
+        client->send_text(s.c_str(), s.length());
+    }
 	return 0;
 }

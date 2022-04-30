@@ -46,7 +46,7 @@ protected:
 		return WFChannel::message_out();
 	}
 
-
+    virtual int first_timeout() {return this->receive_timeout();}
 public:
 	void set_prepare(std::function<void (WFChannelClient*)> prep)
 	{

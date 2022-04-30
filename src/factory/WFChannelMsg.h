@@ -137,14 +137,19 @@ protected:
 	
     virtual void dispatch() {
         int ret = -1;
+        int state;
+
         auto channel = this->get_channel();
 		MSG *msg = this->pick_msg();
-
-        if (this->get_state() == WFC_MSG_STATE_IN)
-            ret = channel->channel_fanout_msg_in(msg, msg->get_seq());
-        else  
-            ret = channel->channel_msg_out(msg);
         
+        state = this->get_state();
+        if (state == WFC_MSG_STATE_IN)
+            ret = channel->channel_fanout_msg_in(msg, msg->get_seq());
+        else if (state == WFC_MSG_STATE_OUT_LIST) 
+            ret = channel->channel_msg_out(msg, WFC_MSG_STATE_OUT_LIST);
+        else
+            ret = channel->channel_msg_out(msg);
+
         if (ret < 0)
             delete msg;
 

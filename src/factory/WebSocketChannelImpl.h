@@ -79,11 +79,11 @@ public:
     virtual int send_text(const char *data, size_t size) ;
     virtual int send_binary(const char *data, size_t size) ;
 
-    virtual int process_ping(protocol::WebSocketFrame *msg) ;
-    virtual int process_pong(protocol::WebSocketFrame *msg) ;
-    virtual int process_close(protocol::WebSocketFrame *msg) ;
-    virtual int process_text(protocol::WebSocketFrame *msg) ;
-    virtual int process_binary(protocol::WebSocketFrame *msg) ;
+    virtual int process_ping(protocol::WebSocketFrame *msg);
+    virtual int process_pong(protocol::WebSocketFrame *msg) {return 0;}
+    virtual int process_close(protocol::WebSocketFrame *msg);
+    virtual int process_text(protocol::WebSocketFrame *msg)  {return 0;}
+    virtual int process_binary(protocol::WebSocketFrame *msg)  {return 0;}
     
     //server
     virtual int process_header_req(protocol::HttpRequest *msg) {return 0;}
@@ -138,9 +138,13 @@ class WebSocketChannelClient : public WFComplexChannelClient , public WebSocketT
 {
 public:
     virtual int send_header_req(WFChannel*); 
-    virtual int process_msg(MSG *message) {
-        std::cout << "---process_msg:"<< message->get_seq() <<"----\n";
+    
+    virtual int process_header_rsp(protocol::HttpResponse *message) {return 0;}
+    virtual int process_text(protocol::WebSocketFrame *msg);
+    virtual int process_binary(protocol::WebSocketFrame *msg)  {return 0;}
 
+    virtual int process_msg(MSG *message) 
+    {
         if (message->get_seq() > 0) {
             protocol::WebSocketFrame *msg = (protocol::WebSocketFrame*) message;
 
@@ -183,7 +187,6 @@ public:
             session = new WSFrame(this, nullptr);
             ((protocol::WebSocketFrame *)session->get_msg())->set_server();
         }
-        std::cout << "channel_msg_seq:" << this->get_channel_msg_seq() << std::endl;
 
         return session;
     }
@@ -210,9 +213,11 @@ class WebSocketChannelServer : public WFChannelServer ,public WebSocketTools
 {
 public:
     virtual int process_header_req(protocol::HttpRequest *req); 
-    virtual int process_msg(MSG *message) {
-        std::cout << "---process_msg:"<< message->get_seq() <<"----\n";
-
+    virtual int process_text(protocol::WebSocketFrame *msg);
+    virtual int process_binary(protocol::WebSocketFrame *msg)  {return 0;}
+    
+    virtual int process_msg(MSG *message) 
+    {
         if (message->get_seq() > 0) {
             protocol::WebSocketFrame *msg = (protocol::WebSocketFrame*) message;
 
@@ -230,9 +235,7 @@ public:
                 this->process_pong(msg);
                 break;
             case WebSocketFrameConnectionClose:
-                //this->send_close(1002, "you error!!!!");
                 this->process_close(msg);
-                //this->channel_close();
                 break;
             default:
                 break;
@@ -259,7 +262,6 @@ public:
             if (this->is_server())
                 ((protocol::WebSocketFrame *)session->get_msg())->set_server();
         }
-        std::cout << "channel_msg_seq:" << this->get_channel_msg_seq() << std::endl;
 
         return session;
     }

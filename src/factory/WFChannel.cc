@@ -75,7 +75,7 @@ void WFComplexChannelClient::dispatch()
 		series_of(this)->push_front(this->router_task);
 	}
 
-	this->subtask_done();
+    this->subtask_done();
 }
 
 SubTask *WFComplexChannelClient::done()

@@ -28,9 +28,10 @@
 #include "WFGlobal.h"
 
 enum {
-        WFC_MSG_STATE_UNDEFINED,
+        WFC_MSG_STATE_UNDEFINED = -1,
         WFC_MSG_STATE_IN,
         WFC_MSG_STATE_OUT,
+        WFC_MSG_STATE_OUT_LIST,
 };
 
 class WFChannelMsgSession :public CommSession {
@@ -116,7 +117,7 @@ public:
         if (this->stop_flag)
             return -1;
         
-        std::cout << __func__ << " ---seq:" << seq << std::endl;
+        //std::cout << __func__ << " ---seq:" << seq << std::endl;
         
         std::lock_guard<std::mutex> lck(this->in_mutex);
         assert(this->in_list_seq <= seq);
@@ -153,7 +154,9 @@ public:
 
         std::lock_guard<std::mutex> lck(this->out_mutex);
         assert(this->out_list_seq <= seq);
-        std::cout << __func__ << " seq :"  << seq << std::endl;        
+        
+        //std::cout << __func__ << " seq :"  << seq << std::endl;        
+        
         fanout_heap_out.emplace(std::make_pair(seq, out));
         while (fanout_heap_out.top().first == this->out_list_seq) {
             auto x =  fanout_heap_out.top();
@@ -178,7 +181,7 @@ public:
         return 0;
     }
     
-    virtual int channel_msg_out(MSG *out)
+    virtual int channel_msg_out(MSG *out, int flag = WFC_MSG_STATE_OUT)
     {
         //if (this->stop_flag)
         //    return -1;
@@ -190,6 +193,11 @@ public:
             std::lock_guard<std::mutex> lck(this->write_mutex);
             this->write_list.push_back(out);
         }
+        
+        if (flag == WFC_MSG_STATE_OUT_LIST)
+            return 0;
+
+        //std::cout << __func__ << " seq :"  << out->get_seq()<< std::endl;        
         
         int ret;
         ret = this->get_scheduler()->channel_send_one(this);
@@ -244,7 +252,7 @@ protected:
 		delete this;
 		return series->pop();
 	}
-   
+    
     virtual ~WFChannel()
     { 
         while (!fanout_heap_in.empty()) {

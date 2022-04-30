@@ -1844,8 +1844,6 @@ int Communicator::channel_send_one(CommSession *session)
         {
             entry->error = errno;
             mpoller_del(entry->sockfd, this->mpoller);
-            //entry->state = CONN_STATE_ERROR;
-            //ret = 1;
         } else if (ret == 0) {
             entry->is_channel = 1;
         }
