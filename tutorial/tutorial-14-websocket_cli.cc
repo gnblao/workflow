@@ -22,6 +22,7 @@
 #include "workflow/WebSocketMessage.h"
 
 #include <cstring>
+#include <ctime>
 #include <iostream>
 #include <stddef.h>
 #include <stdint.h>
@@ -68,7 +69,7 @@ int main(int argc, char *argv[])
 
     std::string s;
     while (1) {
-        sleep(1);
+        usleep(30000);
         std::cout << "please enter your context:";
         std::cin >> s;
         //std::cout << std::endl;
