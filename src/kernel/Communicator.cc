@@ -813,7 +813,7 @@ void Communicator::handle_reply_result(struct poller_result *res)
 	CommTarget *target = entry->target;
 	int timeout;
 	int state;
-    int is_break = 0;
+    int ret = 0;
 
     switch (res->state)
 	{
@@ -826,13 +826,15 @@ void Communicator::handle_reply_result(struct poller_result *res)
 			res->data.message = NULL;
 			pthread_mutex_lock(&target->mutex);
             if (entry->is_channel > 0) {
-                entry->is_channel = 1;
                 delete session->out;
                 session->out = nullptr;
                 /*again write ?*/
+                ret = this->channel_send_callback(session);
+                if (ret == 0)
+                    entry->is_channel = 1;
             }
 
-            if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
+            if (ret == 0 && mpoller_add(&res->data, timeout, this->mpoller) >= 0)
 			{
 				pthread_mutex_lock(&service->mutex);
 				if (!this->stop_flag && service->listen_fd >= 0)
@@ -841,7 +843,7 @@ void Communicator::handle_reply_result(struct poller_result *res)
                         entry->state = CONN_STATE_KEEPALIVE;
                         list_add_tail(&entry->list, &service->alive_list);
                     } else {
-                        is_break = 1;
+                        ret = 1;
                     }
                 }
 				else
@@ -858,9 +860,12 @@ void Communicator::handle_reply_result(struct poller_result *res)
 			pthread_mutex_unlock(&target->mutex);
 		}
 
-		if (1)
+        if (ret == 1)
+            break;
+
+		if (ret == 0)
 			state = CS_STATE_SUCCESS;
-		else if (1)
+		else if (ret == -1)
 	case PR_ST_ERROR:
 			state = CS_STATE_ERROR;
 		else
@@ -868,8 +873,7 @@ void Communicator::handle_reply_result(struct poller_result *res)
 	case PR_ST_STOPPED:
 			state = CS_STATE_STOPPED;
 
-        if (!is_break) 
-            session->handle(state, res->error);
+        session->handle(state, res->error);
 		
         if (__sync_sub_and_fetch(&entry->ref, 1) == 0)
 		{
@@ -887,22 +891,28 @@ void Communicator::handle_request_result(struct poller_result *res)
 	CommSession *session = entry->session;
 	int timeout;
 	int state;
+    int ret = 0;
 
 	switch (res->state)
 	{
 	case PR_ST_FINISHED:
 		pthread_mutex_lock(&entry->mutex);
 		if (entry->is_channel > 0) {
-            entry->is_channel = 1;
             delete session->out;
             session->out = nullptr;
             /*again write ?*/
+            ret = this->channel_send_callback(session);
+            if (ret == 0)
+                entry->is_channel = 1;
         }
 
         if (entry->state != CONN_STATE_ESTABLISHED)
             entry->state = CONN_STATE_RECEIVING;
 		pthread_mutex_unlock(&entry->mutex);
-		
+	    
+        if (ret == 1) 
+            break;
+
         res->data.operation = PD_OP_READ;
 		res->data.message = NULL;
 		timeout = session->first_timeout();
@@ -914,7 +924,7 @@ void Communicator::handle_request_result(struct poller_result *res)
 			session->begin_time.tv_nsec = -1;
 		}
 
-		if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
+		if (ret == 0 && mpoller_add(&res->data, timeout, this->mpoller) >= 0)
 		{
 			if (this->stop_flag)
 				mpoller_del(res->data.fd, this->mpoller);
@@ -1836,9 +1846,11 @@ int Communicator::channel_send_one(CommSession *session)
         }
         
         entry->is_channel = 2;
-        session->out = session->message_out();
-        if (session->out)
+        while(session->out = session->message_out()) {
             ret = this->send_message(entry);
+            if (ret != 0)
+                break;
+        }
 
         if (ret < 0)
         {
@@ -1853,6 +1865,28 @@ int Communicator::channel_send_one(CommSession *session)
     }
 
     return 1;
+}
+
+int Communicator::channel_send_callback(CommSession *session)
+{
+    /* note: please don't call
+     * only use in write result
+     * */
+    
+    int ret = 0;
+	struct CommConnEntry *entry;
+    
+    entry = session->get_connection()->entry;
+	if (!entry)
+        return -1;
+    
+    while(session->out = session->message_out()) {
+        ret = this->send_message(entry);
+        if (ret != 0)
+            break;
+    }
+
+    return ret;
 }
 
 void Communicator::channel_shutdown(CommSession *channel)

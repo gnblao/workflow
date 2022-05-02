@@ -286,9 +286,6 @@ public:
 	int request(CommSession *session, CommTarget *target);
 	int reply(CommSession *session);
 	
-    int channel_send_one(CommSession *session);
-    void channel_shutdown(CommSession *session);
-
 	int push(const void *buf, size_t size, CommSession *session);
 
 	int bind(CommService *service);
@@ -298,6 +295,12 @@ public:
 
 	int io_bind(IOService *service);
 	void io_unbind(IOService *service);
+
+    int channel_send_one(CommSession *session);
+    void channel_shutdown(CommSession *session);
+
+private:
+    int channel_send_callback(CommSession *session);
 
 public:
 	int is_handler_thread() const;

@@ -81,7 +81,6 @@ void WFComplexChannelClient::dispatch()
 SubTask *WFComplexChannelClient::done()
 {
 	SeriesWork *series = series_of(this);
-
     if (this->state == WFT_STATE_SYS_ERROR) {
         this->ns_policy->failed(&this->route_result, NULL, this->target);
     } else
@@ -94,12 +93,8 @@ SubTask *WFComplexChannelClient::done()
 		this->router_task = NULL;
 		return series->pop();
 	}
-
-	if (this->callback)
-		this->callback(this);
-
-    delete this;
-	return series->pop();
+    
+    return this->::WFChannelClient::done();
 }
 
 WFRouterTask *WFComplexChannelClient::route()

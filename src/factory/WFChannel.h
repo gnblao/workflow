@@ -45,7 +45,8 @@ public:
     virtual ~WFChannelMsgSession(){};
 };
 
-class WFChannel : public WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>
+using ChannelBase = WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>;
+class WFChannel : public ChannelBase
 {
 protected:
     using MSG = protocol::ProtocolMessage;
@@ -206,7 +207,7 @@ public:
 
 public:
 	WFChannel(CommSchedObject *object, CommScheduler *scheduler) :
-	    WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>(object, scheduler, nullptr)
+	    ChannelBase(object, scheduler, nullptr)
 	{
         this->msg_seq = 0;
         this->req_seq = 0;

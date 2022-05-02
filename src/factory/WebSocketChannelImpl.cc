@@ -237,6 +237,11 @@ int WebSocketChannelClient::send_header_req(WFChannel*)
         request_uri = uri->path;
     else
         request_uri = "/";
+    
+    if (uri->query && uri->query[0]) {
+        request_uri += "?";
+        request_uri += uri->query;
+    }
 
     protocol::HttpRequest *req = task->get_msg();
     req->set_method(HttpMethodGet);

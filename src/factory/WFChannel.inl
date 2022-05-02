@@ -17,7 +17,7 @@
           Xie Han (xiehan@sogou-inc.com)
 */
 
-
+#include "ProtocolMessage.h"
 class WFChannelClient : public WFChannel
 {
 protected:
@@ -35,7 +35,7 @@ protected:
 		errno = ENOTCONN;
 		return NULL;
 	}
-    
+
 	virtual CommMessageOut *message_out()
 	{
 		/* By using prepare function, users can modify request after
@@ -105,7 +105,6 @@ public:
 protected:
 	virtual void dispatch();
 	virtual SubTask *done();
-	//virtual void handle_terminated();
 	virtual WFRouterTask *route();
 	void router_callback(WFRouterTask *task);
 
