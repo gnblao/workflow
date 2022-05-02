@@ -821,9 +821,6 @@ void Communicator::handle_reply_result(struct poller_result *res)
 		timeout = session->keep_alive_timeout();
 		if (timeout != 0)
 		{
-			__sync_add_and_fetch(&entry->ref, 1);
-			res->data.operation = PD_OP_READ;
-			res->data.message = NULL;
 			pthread_mutex_lock(&target->mutex);
             if (entry->is_channel > 0) {
                 delete session->out;
@@ -834,6 +831,9 @@ void Communicator::handle_reply_result(struct poller_result *res)
                     entry->is_channel = 1;
             }
 
+			__sync_add_and_fetch(&entry->ref, 1);
+			res->data.operation = PD_OP_READ;
+			res->data.message = NULL;
             if (ret == 0 && mpoller_add(&res->data, timeout, this->mpoller) >= 0)
 			{
 				pthread_mutex_lock(&service->mutex);
@@ -844,6 +844,7 @@ void Communicator::handle_reply_result(struct poller_result *res)
                         list_add_tail(&entry->list, &service->alive_list);
                     } else {
                         ret = 1;
+                        __sync_sub_and_fetch(&entry->ref, 1);
                     }
                 }
 				else
