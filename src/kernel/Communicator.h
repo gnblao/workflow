@@ -153,7 +153,6 @@ private:
 	virtual int first_timeout() { return 0; }	/* for client session only. */
 	virtual void handle(int state, int error) = 0;
 
-	virtual bool is_channel() {return false; }  /* for client channel only*/
 protected:
 	CommTarget *get_target() const { return this->target; }
 	CommConnection *get_connection() const { return this->conn; }
@@ -161,6 +160,9 @@ protected:
 	CommMessageIn *get_message_in() const { return this->in; }
 	long long get_seq() const { return this->seq; }
 
+	virtual bool is_channel() {return false; }  /* for client channel only*/
+	CommMessageOut **get_out() { return &this->out; }
+	CommMessageIn **get_in() { return &this->in; }
 private:
 	CommTarget *target;
 	CommConnection *conn;

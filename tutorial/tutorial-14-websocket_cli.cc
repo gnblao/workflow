@@ -61,20 +61,26 @@ int main(int argc, char *argv[])
 	if (URIParser::parse(argv[1], uri) < 0)
 		return -1;
 
-	auto client = new WebSocketChannelClient(nullptr, WFGlobal::get_scheduler());
-	client->set_uri(uri);
+	auto client = new WebSocketChannelClient(nullptr, nullptr);
+	//client->set_uri(uri);
+    client->init(uri);
     client->set_keep_alive(-1);
 
     client->start();
 
     std::string s;
     while (1) {
-        usleep(30000);
+        usleep(50000);
         std::cout << "please enter your context:";
         std::cin >> s;
-        //std::cout << std::endl;
-         
+        //std::cout <<s << std::endl;
+        
+        if (!s.compare("exit"))
+            break;
         client->send_text(s.c_str(), s.length());
     }
+
+    client->channel_close();
+    sleep(10);
 	return 0;
 }

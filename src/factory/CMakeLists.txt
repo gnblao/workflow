@@ -12,7 +12,6 @@ set(SRC
 	HttpTaskImpl.cc
 	WFResourcePool.cc
 	FileTaskImpl.cc
-    WFChannel.cc
     WebSocketChannelImpl.cc
 )
 

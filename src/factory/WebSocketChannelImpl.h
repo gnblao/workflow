@@ -134,7 +134,8 @@ private:
     WFChannel *channel;
 };
 
-class WebSocketChannelClient : public WFComplexChannelClient , public WebSocketTools
+//class WebSocketChannelClient : public WFComplexChannelClient , public WebSocketTools
+class WebSocketChannelClient : public WFChannelClient , public WebSocketTools
 {
 public:
     virtual int send_header_req(WFChannel*); 
@@ -175,6 +176,8 @@ public:
         return 0;
     }
 
+	const ParsedURI *get_uri() const { return &this->uri_; }
+
 public:
     websocket_process_t websocket_process;
 
@@ -194,7 +197,8 @@ public:
 public:
 	WebSocketChannelClient(CommSchedObject *object,
 							CommScheduler *scheduler) :
-		WFComplexChannelClient(object, scheduler),
+		//WFComplexChannelClient(object, scheduler),
+		WFChannelClient(0, nullptr),
         WebSocketTools(this)
 	{
 		this->auto_gen_mkey = true;
@@ -248,7 +252,6 @@ public:
         return 0;
     }
     
-    virtual bool is_server() {return true;}
 public:
     websocket_process_t websocket_process;
 
@@ -266,15 +269,10 @@ public:
         return session;
     }
 
-    virtual void handle(int state, int error)
-	{
-        this->start();
-    }
-
 public:
 	WebSocketChannelServer(CommService *service,
 							CommScheduler *scheduler):
-	    WFChannelServer(service, scheduler),
+	    WFChannelServer(scheduler, service),
         WebSocketTools(this)
 	{
 		this->auto_gen_mkey = auto_gen_mkey;

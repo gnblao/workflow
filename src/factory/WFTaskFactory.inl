@@ -216,6 +216,7 @@ private:
 	bool set_port();
 	void router_callback(void *t);
 	void switch_callback(void *t);
+	virtual void delete_this(void *t) {delete this;};  /*for channel only*/
 };
 
 template<class REQ, class RESP, typename CTX>
@@ -434,7 +435,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::switch_callback(void *t)
 		series_of(this)->push_front(this);
 	}
 	else
-		delete this;
+		this->delete_this(nullptr);
 }
 
 template<class REQ, class RESP, typename CTX>

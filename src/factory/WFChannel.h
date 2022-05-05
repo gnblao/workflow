@@ -23,16 +23,17 @@
 #include "WFConnection.h"
 #include "Workflow.h"
 #include "WFTask.h"
+#include "WFTaskFactory.h"
 #include "CommRequest.h"
 #include "ProtocolMessage.h"
 #include "WFGlobal.h"
 
 enum {
-        WFC_MSG_STATE_UNDEFINED = -1,
+        WFC_MSG_STATE_ERROR = -1,
+        WFC_MSG_STATE_UNDEFINED,
         WFC_MSG_STATE_IN,
         WFC_MSG_STATE_OUT,
         WFC_MSG_STATE_OUT_LIST,
-        WFC_MSG_STATE_ERROR,
 };
 
 class WFChannelMsgSession :public CommSession {
@@ -45,28 +46,84 @@ public:
     virtual ~WFChannelMsgSession(){};
 };
 
-using ChannelBase = WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>;
-class WFChannel : public ChannelBase
-{
+class WFChannel {
 protected:
     using MSG = protocol::ProtocolMessage;
+public:
+    virtual WFChannelMsgSession *new_channel_msg_session() = 0;
+    virtual void incref() = 0;
+    virtual void decref() = 0;
+    virtual int channel_close() = 0;
+    virtual long long get_channel_msg_seq() = 0;
+    virtual int channel_fanout_msg_in(MSG *in, long long seq) = 0;
+    virtual int channel_fanout_msg_out(MSG *out, long long seq) = 0;
+    virtual int channel_msg_out(MSG *out, int flag = WFC_MSG_STATE_OUT) = 0;
+    virtual bool is_server() = 0;
+    std::atomic_bool stop_flag{false};
+};
 
-    virtual WFConnection *get_connection() const { return nullptr;};
-	virtual CommMessageIn *message_in();
-    virtual CommMessageOut *message_out();
+template<typename ChannelBase = WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>>
+class WFChannelImpl : public ChannelBase, public WFChannel
+{
+static_assert(std::is_base_of<WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>, ChannelBase>::value, 
+        "WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>> must is base of ChannelBase");
+protected:
+    using ChannelBaseTask = WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>;
+	using task_callback_t = std::function<void (ChannelBaseTask *)>;
+	
+    virtual CommMessageIn *message_in()
+    {
+        if (this->stop_flag)
+            return nullptr;
+
+        CommMessageIn *msg = this->get_message_in();
+        WFChannelMsgSession *session;
+
+        if (msg)
+            return msg;
+
+        session = this->new_channel_msg_session();
+        if (!session) {
+            return nullptr;
+        }
+
+        msg = session->get_msg();
+        session->set_state(WFC_MSG_STATE_IN);
+
+        if (!msg) {
+            return nullptr;
+        }
+
+        msg->seq = this->msg_seq++;
+        msg->session = session;
+        return msg;
+    }
+
+    virtual CommMessageOut *message_out()
+    {
+        //if (this->stop_flag)
+        //    return nullptr;
+
+        CommMessageOut *msg;
+        std::lock_guard<std::mutex> lck(this->write_mutex);
+        if (this->write_list.size()) {
+            msg = this->write_list.front();
+            this->write_list.pop_front();
+            return msg;
+        }
+
+        return nullptr;
+    }
+
 
 private:
     std::atomic<long long> msg_seq;
     std::atomic<long long> req_seq;
-
     std::atomic<long> ref;
 
 public:
-    std::atomic_bool stop_flag{false};
-	
     virtual WFChannelMsgSession *new_channel_msg_session() {return nullptr;};
     long long get_channel_msg_seq() {return this->msg_seq;}
-    virtual bool is_channel() {return true;}
 	
     virtual int channel_close() {
         this->stop_flag.exchange(true);
@@ -74,15 +131,17 @@ public:
         return 0;
     }
 
-    void incref() {
+    virtual void incref() {
         this->ref++;
     }
-    void decref() {
+    virtual void decref() {
         if (--this->ref == 0)
             delete this;
     }
     
     virtual bool is_server() {return false;}
+    virtual bool is_channel() {return true;}
+
 private:
     using __MSG = std::pair<long long, MSG *>; 
     class cmp {
@@ -205,43 +264,41 @@ public:
         return 0;
     }
 
-public:
-	WFChannel(CommSchedObject *object, CommScheduler *scheduler) :
-	    ChannelBase(object, scheduler, nullptr)
+protected:
+	/*for client*/
+	explicit WFChannelImpl(int retry_max, task_callback_t&& cb):
+	    ChannelBase(retry_max, std::move(cb))
+	{
+        this->msg_seq = 0;
+        this->req_seq = 0;
+        this->ref = 1;
+	}
+	
+    /*for server*/
+	explicit WFChannelImpl(CommScheduler *scheduler, task_callback_t&& cb):
+	    ChannelBase(nullptr, scheduler, std::move(cb))
 	{
         this->msg_seq = 0;
         this->req_seq = 0;
         this->ref = 1;
 	}
 
-private:
-    void __clear() {
-        CommMessageIn *in = this->get_message_in();
-        if (in) {
-            if (in->session) {
-                delete in->session;
-                in->session = nullptr;
-            }
-            //delete in;
-        }
+protected:
+    void delete_this(void *t) {
+        //CommMessageIn *in = this->get_message_in();
+        //if (in) {
+        //    if (in->session) {
+        //        delete in->session;
+        //        in->session = nullptr;
+        //    }
+        //    //delete in;
+        //}
+        
+        this->stop_flag = true;
+        this->decref();
     }
 
-protected:
-    virtual SubTask *done()
-	{
-        this->stop_flag = true;
-        this->__clear();
-
-        SeriesWork *series = series_of(this);
-		if (this->callback)
-			this->callback(this);
-
-        this->decref();
-		//delete this;
-		return series->pop();
-	}
-    
-    virtual ~WFChannel()
+    virtual ~WFChannelImpl()
     { 
         while (!fanout_heap_in.empty()) {
             auto _msg = fanout_heap_in.top();
@@ -251,6 +308,7 @@ protected:
         }
 
         for (auto x : in_list) {
+            in_list.remove(x);
             delete x;
         }
 
@@ -262,15 +320,30 @@ protected:
         }
 
         for (auto x : out_list) {
+            out_list.remove(x);
             delete x;
         }
 
         for (auto x : write_list) {
+            write_list.remove(x);
             delete x;
         }
-
+        
+        CommMessageIn *in = this->get_message_in();
+        if (in) {
+            if (in->session) {
+                delete in->session;
+                in->session = nullptr;
+            }
+            //delete in;
+            *(this->get_in()) = nullptr;
+        }
+        
         CommMessageOut *out = this->get_message_out();
-        delete out;
+        if (out) {
+            delete out;
+            *(this->get_out()) = nullptr;
+        }
     }
 
 };
