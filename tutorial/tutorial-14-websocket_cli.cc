@@ -16,6 +16,7 @@
   Author: Li Yingxin (liyingxin@sogou-inc.com)
 */
 
+#include "workflow/EndpointParams.h"
 #include "workflow/WFGlobal.h"
 #include "workflow/WFFacilities.h"
 #include "workflow/WebSocketChannelImpl.h"
@@ -65,9 +66,17 @@ int main(int argc, char *argv[])
 	//client->set_uri(uri);
     client->init(uri);
     client->set_keep_alive(-1);
-
+    
     client->start();
 
+    std::string s125 = "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
+    std::string s126 = "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
+    std::string s127 = "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
+    std::string s200 = "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
+   
+    std::string s5000;
+    for (int i=0; i<4000; i++)
+        s5000 += s200;
     std::string s;
     while (1) {
         usleep(50000);
@@ -77,6 +86,17 @@ int main(int argc, char *argv[])
         
         if (!s.compare("exit"))
             break;
+        
+        if (!s.compare("125"))
+            s = s125;
+        if (!s.compare("126"))
+            s = s126;
+        if (!s.compare("127"))
+            s = s127;
+        if (!s.compare("200"))
+            s = s200;
+        if (!s.compare("5000"))
+            s = s5000;
         client->send_text(s.c_str(), s.length());
     }
 

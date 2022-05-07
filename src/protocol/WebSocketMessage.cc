@@ -18,6 +18,9 @@
 
 #include <cstddef>
 #include <cstring>
+#include <endian.h>
+#include <iostream>
+#include <netinet/in.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include "WebSocketMessage.h"
@@ -57,8 +60,8 @@ static inline void int4store(unsigned char *T, uint32_t A)
 static inline void int8store(unsigned char *T, uint64_t A)
 {
 	uint def_temp = (uint)A, def_temp2 = (uint)(A >> 32);
-	int4store(T, def_temp);
-	int4store(T + 4, def_temp2);
+	int4store(T, def_temp2);
+	int4store(T + 4, def_temp);
 }
 
 #else
@@ -93,8 +96,14 @@ WebSocketFrame& WebSocketFrame::operator = (WebSocketFrame&& msg)
 int WebSocketFrame::append(const void *buf, size_t *size)
 {
 	int ret = websocket_parser_append_message(buf, size, this->parser);
+    /*
+    std::cout << "--------------------append ret:" << ret  
+        << " nreceived:"<< this->parser->nreceived 
+        << " nleft:"<< this->parser->nleft 
+        << "\n";
+	*/
 
-	if (this->parser->payload_length > this->size_limit)
+    if (this->parser->payload_length > this->size_limit)
 	{
 		this->parser->status_code = WSStatusCodeTooLarge;
 		return 1; // don`t need websocket_parser_parse()
@@ -150,14 +159,15 @@ int WebSocketFrame::encode(struct iovec vectors[], int max)
 	{
 		*p = 126;
 		p++;
-		int2store(p, this->parser->payload_length);
+		int2store(p, htons(this->parser->payload_length));
 		p += 2;
 	}
 	else
 	{
 		*p = 127;
 		p++;
-		int8store(p, this->parser->payload_length);
+		int8store(p, htobe64(this->parser->payload_length));
+		//int8store(p, this->parser->payload_length);
 		p += 8;
 	}
 

@@ -231,23 +231,56 @@ int WebSocketChannelClient::send_header_req(WFChannel*)
     this->set_prepare(nullptr);
     WSHearderReq *task = new WSHearderReq(this, nullptr);
 
-    const ParsedURI *uri = this->get_uri();
     std::string request_uri;
-    if (uri->path && uri->path[0])
-        request_uri = uri->path;
+    std::string header_host;
+    bool is_ssl = false;
+
+    if (uri_.scheme && strcasecmp(uri_.scheme, "wss") == 0)
+        is_ssl = true;
+    
+    if (uri_.path && uri_.path[0])
+        request_uri = uri_.path;
     else
         request_uri = "/";
-    
-    if (uri->query && uri->query[0]) {
+
+    if (uri_.query && uri_.query[0])
+    {
         request_uri += "?";
-        request_uri += uri->query;
+        request_uri += uri_.query;
+    }
+
+    if (uri_.host && uri_.host[0])
+    {
+        header_host = uri_.host;
+    }
+
+    if (uri_.port && uri_.port[0])
+    {
+        int port = atoi(uri_.port);
+
+        if (is_ssl)
+        {
+            if (port != 443)
+            {
+                header_host += ":";
+                header_host += uri_.port;
+            }
+        }
+        else
+        {
+            if (port != 80)
+            {
+                header_host += ":";
+                header_host += uri_.port;
+            }
+        }
     }
 
     protocol::HttpRequest *req = task->get_msg();
     req->set_method(HttpMethodGet);
     req->set_http_version("HTTP/1.1");
     req->set_request_uri(request_uri);
-    req->add_header_pair("Host", this->get_uri()->host);
+    req->add_header_pair("Host", header_host);
     req->add_header_pair("Upgrade", "websocket");
     req->add_header_pair("Connection", "Upgrade");
     req->add_header_pair(WS_HTTP_SEC_KEY_K, WS_HTTP_SEC_KEY_V);

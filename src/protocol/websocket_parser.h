@@ -66,6 +66,14 @@ enum
 	WSStatusCodeUserMax				= 4999,
 };
 
+enum 
+{
+    WS_HEADER_DOING = 0,
+    WS_HEADER_DONE,
+    WS_FRAME_DOING,
+    WS_FRAME_DONE,
+};
+
 typedef struct __websocket_parser
 {
 	char fin;
@@ -76,10 +84,11 @@ typedef struct __websocket_parser
 	unsigned char header_buf[WS_HEADER_LENGTH_MAX];
 	void *payload_data;
 	unsigned long long nreceived;
+	unsigned long long nleft;
 	int masking_key_offset;
-	int nleft;
 	int is_server;
 	int status_code;
+	int status;
 } websocket_parser_t;
 
 #ifdef __cplusplus

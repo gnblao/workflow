@@ -63,6 +63,7 @@ public:
 
 	uint32_t gen_masking_key()
 	{
+			return 0;
 		if (this->auto_gen_mkey == false)
 			return 0;
 
@@ -114,6 +115,7 @@ public:
     }
     
     virtual ~WebSocketTools() {}
+
 protected:
 	size_t size_limit;
     int ping_interval;
@@ -134,7 +136,6 @@ private:
     WFChannel *channel;
 };
 
-//class WebSocketChannelClient : public WFComplexChannelClient , public WebSocketTools
 class WebSocketChannelClient : public WFChannelClient , public WebSocketTools
 {
 public:
@@ -193,6 +194,19 @@ public:
 
         return session;
     }
+
+protected:
+    virtual bool init_success() {
+        bool is_ssl = false;
+
+        if (uri_.scheme && strcasecmp(uri_.scheme, "wss") == 0)
+            is_ssl = true;
+        
+        this->set_transport_type(is_ssl ? TT_TCP_SSL : TT_TCP);
+        return true;
+
+    }
+
 
 public:
 	WebSocketChannelClient(CommSchedObject *object,

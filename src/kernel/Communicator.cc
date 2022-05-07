@@ -16,6 +16,7 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <atomic>
 #include <cstddef>
 #include <iostream>
 #include <mutex>
@@ -46,7 +47,7 @@ struct CommConnEntry
 	CommConnection *conn;
 	long long seq;
 	int sockfd;
-	short is_channel;
+    short is_channel;
 #define CONN_STATE_CONNECTING	0
 #define CONN_STATE_CONNECTED	1
 #define CONN_STATE_RECEIVING	2
@@ -1852,7 +1853,7 @@ int Communicator::channel_send_one(CommSession *session)
             if (ret != 0)
                 break;
         }
-
+        
         if (ret < 0)
         {
             entry->error = errno;

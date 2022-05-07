@@ -106,6 +106,7 @@ protected:
 
         CommMessageOut *msg;
         std::lock_guard<std::mutex> lck(this->write_mutex);
+//        std::cout << "**************************size:" << this->write_list.size() << "**********\n";
         if (this->write_list.size()) {
             msg = this->write_list.front();
             this->write_list.pop_front();
@@ -285,16 +286,17 @@ protected:
 
 protected:
     void delete_this(void *t) {
-        //CommMessageIn *in = this->get_message_in();
-        //if (in) {
-        //    if (in->session) {
-        //        delete in->session;
-        //        in->session = nullptr;
-        //    }
-        //    //delete in;
-        //}
-        
         this->stop_flag = true;
+        
+        CommMessageIn *in = this->get_message_in();
+        if (in) {
+            if (in->session) {
+                delete in->session;
+                in->session = nullptr;
+            }
+            //delete in;
+        }
+        
         this->decref();
     }
 
@@ -329,15 +331,15 @@ protected:
             delete x;
         }
         
-        CommMessageIn *in = this->get_message_in();
-        if (in) {
-            if (in->session) {
-                delete in->session;
-                in->session = nullptr;
-            }
-            //delete in;
-            *(this->get_in()) = nullptr;
-        }
+        //CommMessageIn *in = this->get_message_in();
+        //if (in) {
+        //    if (in->session) {
+        //        delete in->session;
+        //        in->session = nullptr;
+        //    }
+        //    //delete in;
+        //    *(this->get_in()) = nullptr;
+        //}
         
         CommMessageOut *out = this->get_message_out();
         if (out) {
