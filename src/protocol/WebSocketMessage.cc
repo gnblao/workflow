@@ -25,48 +25,49 @@
 #include <stdlib.h>
 #include "WebSocketMessage.h"
 #include "websocket_parser.h"
+#include "mysql_byteorder.h"
 
 namespace protocol
 {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-
-static inline void int2store(unsigned char *T, uint16_t A)
-{
-	memcpy(T, &A, sizeof(A));
-}
-
-static inline void int8store(unsigned char *T, uint64_t A)
-{
-	memcpy(T, &A, sizeof(A));
-}
-
-#elif __BYTE_ORDER == __BIG_ENDIAN
-
-static inline void int2store(unsigned char *T, uint16_t A)
-{
-	uint def_temp = A;
-	*(T) = (unsigned char)(def_temp);
-	*(T + 1) = (unsigned char)(def_temp >> 8);
-}
-
-static inline void int4store(unsigned char *T, uint32_t A)
-{
-	*(T) = (unsigned char)(A);
-	*(T + 1) = (unsigned char)(A >> 8);
-	*(T + 2) = (unsigned char)(A >> 16);
-	*(T + 3) = (unsigned char)(A >> 24);
-}
-
-static inline void int8store(unsigned char *T, uint64_t A)
-{
-	uint def_temp = (uint)A, def_temp2 = (uint)(A >> 32);
-	int4store(T, def_temp2);
-	int4store(T + 4, def_temp);
-}
-
-#else
-# error "unknown byte order"
-#endif
+//#if __BYTE_ORDER == __LITTLE_ENDIAN
+//
+//static inline void int2store(unsigned char *T, uint16_t A)
+//{
+//	memcpy(T, &A, sizeof(A));
+//}
+//
+//static inline void int8store(unsigned char *T, uint64_t A)
+//{
+//	memcpy(T, &A, sizeof(A));
+//}
+//
+//#elif __BYTE_ORDER == __BIG_ENDIAN
+//
+//static inline void int2store(unsigned char *T, uint16_t A)
+//{
+//	unsigned short def_temp = A;
+//	*(T) = (unsigned char)(def_temp);
+//	*(T + 1) = (unsigned char)(def_temp >> 8);
+//}
+//
+//static inline void int4store(unsigned char *T, uint32_t A)
+//{
+//	*(T) = (unsigned char)(A);
+//	*(T + 1) = (unsigned char)(A >> 8);
+//	*(T + 2) = (unsigned char)(A >> 16);
+//	*(T + 3) = (unsigned char)(A >> 24);
+//}
+//
+//static inline void int8store(unsigned char *T, uint64_t A)
+//{
+//	uint def_temp = (uint)A, def_temp2 = (uint)(A >> 32);
+//	int4store(T, def_temp);
+//	int4store(T + 4, def_temp2);
+//}
+//
+//#else
+//# error "unknown byte order"
+//#endif
 
 WebSocketFrame::WebSocketFrame(WebSocketFrame&& msg) :
 	ProtocolMessage(std::move(msg))
@@ -96,13 +97,14 @@ WebSocketFrame& WebSocketFrame::operator = (WebSocketFrame&& msg)
 int WebSocketFrame::append(const void *buf, size_t *size)
 {
 	int ret = websocket_parser_append_message(buf, size, this->parser);
+    
     /*
     std::cout << "--------------------append ret:" << ret  
         << " nreceived:"<< this->parser->nreceived 
         << " nleft:"<< this->parser->nleft 
         << "\n";
-	*/
-
+    */
+    
     if (this->parser->payload_length > this->size_limit)
 	{
 		this->parser->status_code = WSStatusCodeTooLarge;
@@ -152,14 +154,19 @@ int WebSocketFrame::encode(struct iovec vectors[], int max)
 
 	if (this->parser->payload_length < 126)
 	{
-		*p = (unsigned char)this->parser->payload_length;
+		unsigned char c = this->parser->payload_length;
+        //*p = (unsigned char)this->parser->payload_length;
+        *p = c;
 		p++;
 	}
 	else if (this->parser->payload_length < 65536)
 	{
 		*p = 126;
 		p++;
-		int2store(p, htons(this->parser->payload_length));
+
+		//int2store(p, this->parser->payload_length);
+        uint16_t s = this->parser->payload_length;
+		int2store(p, htons(s));
 		p += 2;
 	}
 	else

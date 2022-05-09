@@ -19,10 +19,11 @@
 #ifndef _WEBSOCKET_PARSER_H_
 #define _WEBSOCKET_PARSER_H_
 
-#define WS_HEADER_LENGTH_MAX	14
-#define WS_SERVER_LENGTH_MIN	2
-#define WS_CLIENT_LENGTH_MIN	6
-#define WS_MASKING_KEY_LENGTH	4
+// Minimum length of a WebSocket frame header.
+#define WS_BASIC_HEADER_LENGTH  2
+// Maximum length of a WebSocket header
+#define WS_MAX_HEADER_LENGTH  14
+#define WS_MASKING_KEY_LENGTH  4
 
 #include <stddef.h>
 #include <stdint.h>
@@ -80,15 +81,15 @@ typedef struct __websocket_parser
 	char mask;
 	int opcode;
 	unsigned char masking_key[WS_MASKING_KEY_LENGTH];
-	unsigned long long payload_length;
-	unsigned char header_buf[WS_HEADER_LENGTH_MAX];
-	void *payload_data;
-	unsigned long long nreceived;
-	unsigned long long nleft;
+	unsigned char header_buf[WS_MAX_HEADER_LENGTH];
 	int masking_key_offset;
 	int is_server;
 	int status_code;
 	int status;
+	unsigned long long nreceived;
+	unsigned long long nleft;
+	unsigned long long payload_length;
+	void *payload_data;
 } websocket_parser_t;
 
 #ifdef __cplusplus
