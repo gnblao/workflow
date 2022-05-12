@@ -8,12 +8,9 @@
 #ifndef _SRC_SERVER_WFWEBSOCKETSERVER_H_
 #define _SRC_SERVER_WFWEBSOCKETSERVER_H_
 
-#include <utility>
-#include "HttpMessage.h"
-#include "ProtocolMessage.h"
 #include "WFServer.h"
 #include "WFGlobal.h"
-#include "WFTaskFactory.h"
+#include "ProtocolMessage.h"
 #include "WebSocketChannelImpl.h"
 
 static constexpr struct WFServerParams WS_SERVER_PARAMS_DEFAULT =
@@ -26,9 +23,7 @@ static constexpr struct WFServerParams WS_SERVER_PARAMS_DEFAULT =
 	.ssl_accept_timeout		=	10 * 1000,
 };
 
-
-
-class WFWebSocketServer :public WFServer<protocol::ProtocolMessage,
+class WFWebSocketServer : public WFServer<protocol::ProtocolMessage,
 							  protocol::ProtocolMessage> 
 {
 using MSG = protocol::ProtocolMessage;
@@ -40,21 +35,37 @@ public:
         channel->set_keep_alive(this->params.keep_alive_timeout);
         channel->set_receive_timeout(this->params.receive_timeout);
         channel->get_req()->set_size_limit(this->params.request_size_limit);
-        channel->set_sec_protocol("");
-        channel->set_auto_gen_mkey(true);
-        channel->set_ping_interval(20*1000*1000);
+
+        channel->set_sec_version(this->sec_version);
+        channel->set_sec_protocol(this->sec_protocol);
+        channel->set_auto_gen_mkey(this->auto_gen_mkey);
+        channel->set_ping_interval(this->ping_interval);
         
         return channel;
     }
     
-    virtual bool is_channel() {return true;}
-
     WFWebSocketServer() : 
         WFServer<MSG, MSG>(&WS_SERVER_PARAMS_DEFAULT, nullptr)
     {
+        this->ping_interval = 5 * 1000;
+        this->auto_gen_mkey = false;
+        this->sec_version = "13";
+        this->sec_protocol = "chat";
     }
 
+public:
+    void set_ping_interval(int millisecond) {this->ping_interval = millisecond;}
+	void set_sec_protocol(const std::string &protocol) { this->sec_protocol = protocol;}
+	void set_sec_version(const std::string &version) { this->sec_version = version;}
 
+protected:
+    virtual bool is_channel() {return true;}
+
+private:
+    int ping_interval;          // millisecond
+	bool auto_gen_mkey;         // random Masking-Key
+	std::string sec_protocol;   // Sec-WebSocket-Protocol
+	std::string sec_version;    // Sec-WebSocket-Version
 };
 
 #endif  // _SRC_SERVER_WFWEBSOCKETSERVER_H_

@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <bits/types/struct_timespec.h>
 #include <cassert>
 #include <cstddef>
 #include <random>
@@ -58,7 +59,7 @@ public:
 	const std::string get_sec_protocol() const { return this->sec_protocol;}
 	const std::string get_sec_version() const { return this->sec_version;}
     
-    void set_ping_interval(int microsecond) {this->ping_interval = microsecond;}
+    void set_ping_interval(int millisecond) {this->ping_interval = millisecond;}
     void set_auto_gen_mkey(bool b) {this->auto_gen_mkey = b;}
 
 	uint32_t gen_masking_key()
@@ -89,22 +90,40 @@ public:
     //server
     virtual int process_header_req(protocol::HttpRequest *msg) {return 0;}
 
-    void timer_callback(WFTimerTask *timer)  {
-        if (!this->channel->stop_flag)
-            this->send_ping();
-
-        if (this->ping_interval > 0 && !this->channel->stop_flag)
-            this->create_ping_timer();
-    
-        this->channel->decref();
-    }
-
     void create_ping_timer() {
-        auto timer = WFTaskFactory::create_timer_task(this->ping_interval, 
+        auto timer = WFTaskFactory::create_timer_task(this->ping_interval * 1000, 
                 std::bind(&WebSocketTools::timer_callback, this, std::placeholders::_1));
         
         this->channel->incref();
         timer->start();
+    }
+    
+    void update_time() {
+        clock_gettime(CLOCK_MONOTONIC, &this->last_time);
+    }
+
+private:
+    void timer_callback(WFTimerTask *timer)  {
+        if (this->channel->is_open() && this->ping_interval < update_interval())
+            this->send_ping();
+
+        if (this->ping_interval > 0 && this->channel->is_open())
+            this->create_ping_timer();
+    
+        this->channel->decref();
+    }
+   
+    int update_interval() 
+    {
+        struct timespec cur_time;
+        int time_used;
+        
+        clock_gettime(CLOCK_MONOTONIC, &cur_time);
+        
+        time_used = 1000 * (cur_time.tv_sec - this->last_time.tv_sec) +
+            (cur_time.tv_nsec - this->last_time.tv_nsec) / 1000000;
+        
+        return time_used;
     }
 
 public:
@@ -117,8 +136,9 @@ public:
     virtual ~WebSocketTools() {}
 
 protected:
+    struct timespec last_time;
+    int ping_interval;  /*millisecond*/
 	size_t size_limit;
-    int ping_interval;
 	bool auto_gen_mkey; // random Masking-Key
 	std::random_device rd;
 	std::mt19937 gen;
@@ -132,6 +152,7 @@ protected:
         WS_HANDSHAKE_CLOSED,
     };
     int handshake_status;
+
 private:
     WFChannel *channel;
 };
@@ -174,6 +195,7 @@ public:
             this->handshake_status = WS_HANDSHAKE_OPEN;
         }
 
+        this->update_time();
         return 0;
     }
 
@@ -183,7 +205,8 @@ public:
     websocket_process_t websocket_process;
 
 public:
-    virtual WFChannelMsgSession *new_channel_msg_session() {
+    virtual WFChannelMsgSession *new_channel_msg_session() 
+    {
         WFChannelMsgSession *session = nullptr;
         if (this->get_channel_msg_seq() == 0)
             session = new WSHearderRsp(this, nullptr);
@@ -211,7 +234,6 @@ protected:
 public:
 	WebSocketChannelClient(CommSchedObject *object,
 							CommScheduler *scheduler) :
-		//WFComplexChannelClient(object, scheduler),
 		WFChannelClient(0, nullptr),
         WebSocketTools(this)
 	{
@@ -262,7 +284,8 @@ public:
             this->process_header_req((protocol::HttpRequest*)message);
             this->create_ping_timer();
         }
-
+        
+        this->update_time();
         return 0;
     }
     

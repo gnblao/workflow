@@ -8,26 +8,14 @@
 #ifndef _FACTORY_WFCHANNELMSG_H_
 #define _FACTORY_WFCHANNELMSG_H_
 
-#include <atomic>
 #include <cassert>
 #include <functional>
-#include <mutex>
-#include <type_traits>
-#include <queue>
-#include <list>
-#include <utility>
 
-#include "CommScheduler.h"
-#include "Communicator.h"
-#include "WFConnection.h"
 #include "Workflow.h"
-#include "WFTask.h"
-#include "CommRequest.h"
+#include "Communicator.h"
 #include "ProtocolMessage.h"
-#include "WFGlobal.h"
 #include "WFChannel.h"
 
-class WFChannel;
 template<typename MSG>
 class WFChannelMsgBase : public SubTask, public WFChannelMsgSession
 {

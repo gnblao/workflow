@@ -38,9 +38,9 @@ enum {
 
 class WFChannelMsgSession :public CommSession {
 public:
-    virtual protocol::ProtocolMessage *get_msg() =0;
-    virtual int get_state() {return WFC_MSG_STATE_UNDEFINED;};
-    virtual void set_state(int state){};
+    virtual protocol::ProtocolMessage *get_msg() = 0;
+    virtual int get_state() const = 0;
+    virtual void set_state(int state) = 0;
 
     WFChannelMsgSession(): CommSession() {}
     virtual ~WFChannelMsgSession(){};
@@ -51,34 +51,41 @@ protected:
     using MSG = protocol::ProtocolMessage;
 public:
     virtual WFChannelMsgSession *new_channel_msg_session() = 0;
+
     virtual void incref() = 0;
     virtual void decref() = 0;
-    virtual int channel_close() = 0;
-    virtual long long get_channel_msg_seq() = 0;
+    
+    virtual long long get_channel_msg_seq() = 0; /*for in msg only*/
+    virtual long long get_channel_req_seq() = 0; /*for req only*/
+    
     virtual int channel_fanout_msg_in(MSG *in, long long seq) = 0;
     virtual int channel_fanout_msg_out(MSG *out, long long seq) = 0;
     virtual int channel_msg_out(MSG *out, int flag = WFC_MSG_STATE_OUT) = 0;
+    
     virtual bool is_server() = 0;
-    std::atomic_bool stop_flag{false};
+    virtual bool is_open() = 0;
+    virtual int channel_close() = 0;
 };
 
 template<typename ChannelBase = WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>>
 class WFChannelImpl : public ChannelBase, public WFChannel
 {
-static_assert(std::is_base_of<WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>, ChannelBase>::value, 
-        "WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>> must is base of ChannelBase");
+private:
+    using Base_ = WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>;
+    static_assert(std::is_base_of<Base_, ChannelBase>::value, 
+            "WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>> must is base of ChannelBase");
+
 protected:
-    using ChannelBaseTask = WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>;
-	using task_callback_t = std::function<void (ChannelBaseTask *)>;
+	using task_callback_t = std::function<void (Base_ *)>;
 	
     virtual CommMessageIn *message_in()
     {
-        if (this->stop_flag)
+        WFChannelMsgSession *session;
+        
+        if (!this->is_open())
             return nullptr;
 
         CommMessageIn *msg = this->get_message_in();
-        WFChannelMsgSession *session;
-
         if (msg)
             return msg;
 
@@ -101,12 +108,12 @@ protected:
 
     virtual CommMessageOut *message_out()
     {
-        //if (this->stop_flag)
+        CommMessageOut *msg;
+        
+        //if (!this->is_open())
         //    return nullptr;
 
-        CommMessageOut *msg;
         std::lock_guard<std::mutex> lck(this->write_mutex);
-//        std::cout << "**************************size:" << this->write_list.size() << "**********\n";
         if (this->write_list.size()) {
             msg = this->write_list.front();
             this->write_list.pop_front();
@@ -121,16 +128,21 @@ private:
     std::atomic<long long> msg_seq;
     std::atomic<long long> req_seq;
     std::atomic<long> ref;
+    
+    std::atomic_bool stop_flag{false};
 
 public:
-    virtual WFChannelMsgSession *new_channel_msg_session() {return nullptr;};
+    //virtual WFChannelMsgSession *new_channel_msg_session() {return nullptr;};
     long long get_channel_msg_seq() {return this->msg_seq;}
+    long long get_channel_req_seq() {return this->req_seq;}
 	
     virtual int channel_close() {
         this->stop_flag.exchange(true);
         this->get_scheduler()->channel_shutdown(this);
         return 0;
     }
+    
+    virtual bool is_open() {return !this->stop_flag;};
 
     virtual void incref() {
         this->ref++;
@@ -175,10 +187,8 @@ public:
         int ret;
         CommSession *cur_session = in->session;
 
-        if (this->stop_flag)
+        if (!this->is_open())
             return -1;
-        
-        //std::cout << __func__ << " ---seq:" << seq << std::endl;
         
         std::lock_guard<std::mutex> lck(this->in_mutex);
         assert(this->in_list_seq <= seq);
@@ -210,13 +220,11 @@ public:
     virtual int channel_fanout_msg_out(MSG *out, long long seq)
     {
         int ret;
-        if (this->stop_flag)
+        if (!this->is_open())
             return -1;
 
         std::lock_guard<std::mutex> lck(this->out_mutex);
         assert(this->out_list_seq <= seq);
-        
-        //std::cout << __func__ << " seq :"  << seq << std::endl;        
         
         fanout_heap_out.emplace(std::make_pair(seq, out));
         while (fanout_heap_out.top().first == this->out_list_seq) {
@@ -246,7 +254,7 @@ public:
     {
         int ret;
         
-        if (this->stop_flag)
+        if (!this->is_open())
             return -1;
 
         {

@@ -52,6 +52,7 @@ public:
     {
         this->channel = channel;
     }
+    virtual ~WFChannelRequest() {}
 
     WFChannel *get_channel() const { return this->channel; }
 	void set_channel(WFChannel *channel) { this->channel = channel; }
@@ -63,6 +64,11 @@ public:
 	{
 		return &this->req;
 	}
+	virtual RSP *get_rsp()
+	{
+		return &this->rsp;
+	}
+
 
 	void set_callback(std::function<void (WFChannelRequest<REQ, RSP> *)> cb)
 	{

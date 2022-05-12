@@ -6,12 +6,6 @@
  ************************************************************************/
 
 
-#include "ProtocolMessage.h"
-#include "WFChannel.h"
-#include "WFTask.h"
-#include <functional>
-#include <utility>
-
 using WFChannelClientBase = WFChannelImpl<WFComplexClientTask<protocol::ProtocolMessage, protocol::ProtocolMessage>>;
 using WFChannelServerBase = WFChannelImpl<WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>>;
 
