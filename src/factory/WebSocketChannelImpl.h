@@ -205,10 +205,10 @@ public:
     websocket_process_t websocket_process;
 
 public:
-    virtual WFChannelMsgSession *new_channel_msg_session() 
+    virtual MsgSession *new_msg_session() 
     {
-        WFChannelMsgSession *session = nullptr;
-        if (this->get_channel_msg_seq() == 0)
+        MsgSession *session = nullptr;
+        if (this->get_msg_seq() == 0)
             session = new WSHearderRsp(this, nullptr);
         else {
             session = new WSFrame(this, nullptr);
@@ -293,9 +293,9 @@ public:
     websocket_process_t websocket_process;
 
 public:
-    virtual WFChannelMsgSession *new_channel_msg_session() {
-        WFChannelMsgSession *session = nullptr;
-        if (this->get_channel_msg_seq() == 0)
+    virtual MsgSession *new_msg_session() {
+        MsgSession *session = nullptr;
+        if (this->get_msg_seq() == 0)
             session = new WSHearderReq(this, nullptr);
         else {
             session = new WSFrame(this, nullptr);

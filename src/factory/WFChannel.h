@@ -20,13 +20,9 @@
 
 #include "CommScheduler.h"
 #include "Communicator.h"
-#include "WFConnection.h"
-#include "Workflow.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
-#include "CommRequest.h"
 #include "ProtocolMessage.h"
-#include "WFGlobal.h"
 
 enum {
         WFC_MSG_STATE_ERROR = -1,
@@ -36,31 +32,32 @@ enum {
         WFC_MSG_STATE_OUT_LIST,
 };
 
-class WFChannelMsgSession :public CommSession {
+class MsgSession :public CommSession {
 public:
     virtual protocol::ProtocolMessage *get_msg() = 0;
     virtual int get_state() const = 0;
     virtual void set_state(int state) = 0;
 
-    WFChannelMsgSession(): CommSession() {}
-    virtual ~WFChannelMsgSession(){};
+    MsgSession(): CommSession() {}
+    virtual ~MsgSession(){};
 };
 
 class WFChannel {
 protected:
     using MSG = protocol::ProtocolMessage;
 public:
-    virtual WFChannelMsgSession *new_channel_msg_session() = 0;
+    virtual MsgSession *new_msg_session() = 0;
 
     virtual void incref() = 0;
     virtual void decref() = 0;
     
-    virtual long long get_channel_msg_seq() = 0; /*for in msg only*/
-    virtual long long get_channel_req_seq() = 0; /*for req only*/
+    virtual long long get_msg_seq() = 0; /*for in msg only*/
+    virtual long long get_req_seq() = 0; /*for req only*/
     
-    virtual int channel_fanout_msg_in(MSG *in, long long seq) = 0;
-    virtual int channel_fanout_msg_out(MSG *out, long long seq) = 0;
-    virtual int channel_msg_out(MSG *out, int flag = WFC_MSG_STATE_OUT) = 0;
+    virtual int fanout_msg_in(MSG *in, long long seq) = 0;
+    virtual int fanout_msg_out(MSG *out, long long seq) = 0;
+    virtual int msg_out(MSG *out) = 0;
+    virtual int msg_out_list(MSG *out) = 0;
     
     virtual bool is_server() = 0;
     virtual bool is_open() = 0;
@@ -80,7 +77,7 @@ protected:
 	
     virtual CommMessageIn *message_in()
     {
-        WFChannelMsgSession *session;
+        MsgSession *session;
         
         if (!this->is_open())
             return nullptr;
@@ -89,7 +86,7 @@ protected:
         if (msg)
             return msg;
 
-        session = this->new_channel_msg_session();
+        session = this->new_msg_session();
         if (!session) {
             return nullptr;
         }
@@ -132,9 +129,9 @@ private:
     std::atomic_bool stop_flag{false};
 
 public:
-    //virtual WFChannelMsgSession *new_channel_msg_session() {return nullptr;};
-    long long get_channel_msg_seq() {return this->msg_seq;}
-    long long get_channel_req_seq() {return this->req_seq;}
+    //virtual MsgSession *new_msg_session() {return nullptr;};
+    long long get_msg_seq() {return this->msg_seq;}
+    long long get_req_seq() {return this->req_seq;}
 	
     virtual int channel_close() {
         this->stop_flag.exchange(true);
@@ -182,7 +179,7 @@ public:
         return 0;
     }
     
-    virtual int channel_fanout_msg_in(MSG *in, long long seq)
+    virtual int fanout_msg_in(MSG *in, long long seq)
 	{
         int ret;
         CommSession *cur_session = in->session;
@@ -217,7 +214,7 @@ public:
         return 0;
     }
 
-    virtual int channel_fanout_msg_out(MSG *out, long long seq)
+    virtual int fanout_msg_out(MSG *out, long long seq)
     {
         int ret;
         if (!this->is_open())
@@ -240,7 +237,7 @@ public:
             MSG *msg = out_list.front();
             out_list.pop_front();
 
-            ret = this->channel_msg_out(msg);
+            ret = this->msg_out(msg);
             if (ret < 0) {
                 delete msg;
                 break;
@@ -250,7 +247,7 @@ public:
         return 0;
     }
     
-    virtual int channel_msg_out(MSG *out, int flag = WFC_MSG_STATE_OUT)
+    virtual int msg_out(MSG *out, int flag)
     {
         int ret;
         
@@ -273,6 +270,12 @@ public:
         return 0;
     }
 
+    virtual int msg_out(MSG *out) {
+        return this->msg_out(out, WFC_MSG_STATE_OUT);
+    }
+    virtual int msg_out_list(MSG *out) {
+        return this->msg_out(out, WFC_MSG_STATE_OUT_LIST);
+    }
 protected:
 	/*for client*/
 	explicit WFChannelImpl(int retry_max, task_callback_t&& cb):

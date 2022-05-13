@@ -95,19 +95,11 @@ static std::string __base64encode(std::string& src)
     return base64;
 }
 
-static inline void __sha1(const std::string& str, unsigned char *md)
-{
-	SHA_CTX ctx;
-	SHA1_Init(&ctx);
-	SHA1_Update(&ctx, str.c_str(), str.size());
-	SHA1_Final(md, &ctx);
-}
-
 static inline std::string __sha1_bin(const std::string& str)
 {
 	unsigned char md[20];
 
-	__sha1(str, md);
+    EVP_Digest(str.c_str(), str.size(), md, NULL, EVP_sha1(), NULL);
 	return std::string((const char *)md, 20);
 }
 

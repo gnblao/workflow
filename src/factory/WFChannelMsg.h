@@ -17,7 +17,7 @@
 #include "WFChannel.h"
 
 template<typename MSG>
-class WFChannelMsgBase : public SubTask, public WFChannelMsgSession
+class WFChannelMsgBase : public SubTask, public MsgSession
 {
 static_assert(std::is_base_of<protocol::ProtocolMessage, MSG>::value, "ProtocolMessage must is base of MSG");
 public:
@@ -58,6 +58,7 @@ public:
 		return this->msg;
 	}
 
+protected:
     virtual MSG *pick_msg()
     {
        MSG *m = this->msg;
@@ -116,7 +117,8 @@ protected:
 		return series->pop();
 	}
 
-    virtual void dispatch() {
+    virtual void dispatch() 
+    {
         int ret = -1;
         int state;
 
@@ -125,11 +127,11 @@ protected:
         
         state = this->get_state();
         if (state == WFC_MSG_STATE_IN)
-            ret = channel->channel_fanout_msg_in(msg, msg->get_seq());
+            ret = channel->fanout_msg_in(msg, msg->get_seq());
         else if (state == WFC_MSG_STATE_OUT_LIST) 
-            ret = channel->channel_msg_out(msg, WFC_MSG_STATE_OUT_LIST);
+            ret = channel->msg_out_list(msg);
         else
-            ret = channel->channel_msg_out(msg);
+            ret = channel->msg_out(msg);
 
         if (ret < 0) {
             this->set_state(WFC_MSG_STATE_ERROR);    

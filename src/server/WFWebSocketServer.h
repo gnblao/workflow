@@ -49,8 +49,8 @@ public:
     {
         this->ping_interval = 5 * 1000;
         this->auto_gen_mkey = false;
-        this->sec_version = "13";
-        this->sec_protocol = "chat";
+//        this->sec_version = "13";
+//        this->sec_protocol = "chat";
     }
 
 public:
