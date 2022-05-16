@@ -114,27 +114,23 @@ int WebSocketFrame::encode(struct iovec vectors[], int max)
 
 	if (this->parser->payload_length < 126)
 	{
-		unsigned char c = this->parser->payload_length;
-        //*p = (unsigned char)this->parser->payload_length;
-        *p = c;
-		p++;
+        *p = this->parser->payload_length;
+        p++;
 	}
 	else if (this->parser->payload_length < 65536)
 	{
 		*p = 126;
 		p++;
 
-		//int2store(p, this->parser->payload_length);
-        uint16_t s = this->parser->payload_length;
-		int2store(p, htons(s));
+		int2store(p, htons(this->parser->payload_length));
 		p += 2;
 	}
 	else
 	{
 		*p = 127;
 		p++;
-		int8store(p, htobe64(this->parser->payload_length));
-		//int8store(p, this->parser->payload_length);
+		
+        int8store(p, htobe64(this->parser->payload_length));
 		p += 8;
 	}
 

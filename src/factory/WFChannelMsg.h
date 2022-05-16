@@ -105,23 +105,11 @@ public:
 		this->callback = std::move(cb);
 	}
 
-protected:
-    virtual SubTask *done()
-	{
-		SeriesWork *series = series_of(this);
-
-		if (this->callback)
-			this->callback(this);
-		
-        delete this;
-		return series->pop();
-	}
-
-    virtual void dispatch() 
+private:
+    virtual void eat_msg() 
     {
         int ret = -1;
         int state;
-
         auto channel = this->get_channel();
 		MSG *msg = this->pick_msg();
         
@@ -137,7 +125,26 @@ protected:
             this->set_state(WFC_MSG_STATE_ERROR);    
             delete msg;
         }
+    } 
+ 
+protected:
+    virtual SubTask *done()
+	{
+		SeriesWork *series = series_of(this);
+        
+		if (this->callback)
+			this->callback(this);
+		
+        delete this;
+		return series->pop();
+	}
 
+    virtual void dispatch() 
+    {
+        if (this->process)
+            this->process(this);
+
+        this->eat_msg();
         this->subtask_done();
     }
     

@@ -318,7 +318,7 @@ public:
         this->set_receive_timeout(-1);
         this->set_send_timeout(-1);
         
-        this->ping_interval = 5 * 1000 *1000;
+        this->ping_interval = 5 * 1000;
     }
 };
 
