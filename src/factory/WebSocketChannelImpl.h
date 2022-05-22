@@ -17,6 +17,7 @@
 #include <functional>
 #include <iostream>
 #include <type_traits>
+#include <utility>
 #include "Communicator.h"
 #include "ProtocolMessage.h"
 #include "SubTask.h"
@@ -218,6 +219,14 @@ public:
         return session;
     }
 
+    bool open() {
+        if (this->handshake_status != WS_HANDSHAKE_OPEN)
+            return false;
+
+        return this->::WFChannelClientBase::is_open();
+    }
+
+
 protected:
     virtual bool init_success() {
         bool is_ssl = false;
@@ -229,12 +238,10 @@ protected:
         return true;
 
     }
-
-
+    
 public:
-	WebSocketChannelClient(CommSchedObject *object,
-							CommScheduler *scheduler) :
-		WFChannelClient(0, nullptr),
+	WebSocketChannelClient(task_callback_t &&cb = nullptr) :
+		WFChannelClient(0, std::move(cb)),
         WebSocketTools(this)
 	{
 		this->auto_gen_mkey = true;
@@ -283,6 +290,7 @@ public:
         } else {
             this->process_header_req((protocol::HttpRequest*)message);
             this->create_ping_timer();
+            this->handshake_status = WS_HANDSHAKE_OPEN;
         }
         
         this->update_time();
@@ -291,6 +299,15 @@ public:
     
 public:
     websocket_process_t websocket_process;
+
+public:
+    bool open() {
+        if (this->handshake_status != WS_HANDSHAKE_OPEN)
+            return false;
+
+        return this->::WFChannelServerBase::is_open();
+    }
+
 
 public:
     virtual MsgSession *new_msg_session() {

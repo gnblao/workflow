@@ -46,6 +46,8 @@ class WFChannel {
 protected:
     using MSG = protocol::ProtocolMessage;
 public:
+    using BaseTask = WFNetworkTask<MSG, MSG>;
+public:
     virtual MsgSession *new_msg_session() = 0;
 
     virtual void incref() = 0;
@@ -68,12 +70,11 @@ template<typename ChannelBase = WFNetworkTask<protocol::ProtocolMessage, protoco
 class WFChannelImpl : public ChannelBase, public WFChannel
 {
 private:
-    using Base_ = WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>;
-    static_assert(std::is_base_of<Base_, ChannelBase>::value, 
+    static_assert(std::is_base_of<BaseTask, ChannelBase>::value, 
             "WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>> must is base of ChannelBase");
 
 protected:
-	using task_callback_t = std::function<void (Base_ *)>;
+	using task_callback_t = std::function<void (BaseTask *)>;
 	
     virtual CommMessageIn *message_in()
     {

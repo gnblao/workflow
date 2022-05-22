@@ -34,7 +34,7 @@ public:
 
         channel->set_keep_alive(this->params.keep_alive_timeout);
         channel->set_receive_timeout(this->params.receive_timeout);
-        channel->set_send_timeout(this->params.peer_response_timeout);
+        channel->set_send_timeout(-1);
         channel->get_req()->set_size_limit(this->params.request_size_limit);
 
         channel->set_sec_version(this->sec_version);

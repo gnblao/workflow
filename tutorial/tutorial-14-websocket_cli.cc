@@ -19,8 +19,8 @@
 #include "workflow/EndpointParams.h"
 #include "workflow/WFGlobal.h"
 #include "workflow/WFFacilities.h"
-#include "workflow/WebSocketChannelImpl.h"
 #include "workflow/WebSocketMessage.h"
+#include "workflow/WFWebSocketClient.h"
 
 #include <cstring>
 #include <ctime>
@@ -58,17 +58,8 @@ int main(int argc, char *argv[])
 		return 0;
 	}
     
-    ParsedURI uri;
-	if (URIParser::parse(argv[1], uri) < 0)
-		return -1;
-
-	auto client = new WebSocketChannelClient(nullptr, nullptr);
-	//client->set_uri(uri);
-    client->init(uri);
-    client->set_keep_alive(-1);
+    WFWebSocketClient client(argv[1]);
     
-    client->start();
-
     std::string s125 = "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
     std::string s126 = "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
     std::string s127 = "1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
@@ -97,10 +88,9 @@ int main(int argc, char *argv[])
             s = s200;
         if (!s.compare("5000"))
             s = s5000;
-        client->send_text(s.c_str(), s.length());
+        client.send_text(s.c_str(), s.length());
     }
 
-    client->channel_close();
     sleep(10);
 	return 0;
 }
