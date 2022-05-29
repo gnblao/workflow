@@ -313,7 +313,8 @@ int CommService::drain(int max)
 
 		/* Cannot change the sequence of next two lines. */
 		mpoller_del(entry->sockfd, entry->mpoller);
-		entry->state = CONN_STATE_CLOSING;
+        if (!entry->is_channel)
+            entry->state = CONN_STATE_CLOSING;
 	}
 
 	pthread_mutex_unlock(&this->mutex);
@@ -517,7 +518,8 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt,
 			{
 		case 0:
 				mpoller_del(entry->sockfd, this->mpoller);
-				entry->state = CONN_STATE_CLOSING;
+				if (!entry->is_channel)
+                    entry->state = CONN_STATE_CLOSING;
 			}
 		}
 	}
@@ -851,7 +853,8 @@ void Communicator::handle_reply_result(struct poller_result *res)
 				else
 				{
 					mpoller_del(res->data.fd, this->mpoller);
-					entry->state = CONN_STATE_CLOSING;
+					if (!entry->is_channel)
+                        entry->state = CONN_STATE_CLOSING;
 				}
 
 				pthread_mutex_unlock(&service->mutex);

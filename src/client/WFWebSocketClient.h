@@ -32,7 +32,7 @@ public:
 
     virtual ~WFWebSocketClient() {
         if (this->client_)
-            this->client_->shutdwon();
+            this->client_->shutdown();
 
         if(this->wg_) {
             this->wg_->wait();

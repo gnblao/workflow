@@ -197,7 +197,7 @@ int WebSocketTools::process_close(protocol::WebSocketFrame *in)
     if (this->handshake_status == WS_HANDSHAKE_CLOSING)
     {
         this->handshake_status = WS_HANDSHAKE_CLOSED;
-        this->channel->shutdwon();   
+        this->channel->shutdown();   
     } else { 
         this->handshake_status = WS_HANDSHAKE_CLOSING;
 
@@ -211,7 +211,7 @@ int WebSocketTools::process_close(protocol::WebSocketFrame *in)
             msg->set_data(in->get_parser());
         }
 
-        task->set_callback([this] (WFChannelMsg<protocol::WebSocketFrame>*) { this->channel->shutdwon();});
+        task->set_callback([this] (WFChannelMsg<protocol::WebSocketFrame>*) { this->channel->shutdown();});
         series_of(dynamic_cast<WSFrame *>(in->session))->push_back(task);
     }
 

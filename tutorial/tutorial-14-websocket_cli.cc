@@ -88,9 +88,10 @@ int main(int argc, char *argv[])
             s = s200;
         if (!s.compare("5000"))
             s = s5000;
-        client.send_text(s.c_str(), s.length());
+        if (!client.send_text(s.c_str(), s.length()))
+            break;
     }
 
-    sleep(10);
+    //sleep(10);
 	return 0;
 }
