@@ -63,7 +63,7 @@ public:
     
     virtual bool is_server() = 0;
     virtual bool is_open() = 0;
-    virtual int channel_close() = 0;
+    virtual int shutdwon() = 0;
 };
 
 template<typename ChannelBase = WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>>
@@ -134,7 +134,7 @@ public:
     long long get_msg_seq() {return this->msg_seq;}
     long long get_req_seq() {return this->req_seq;}
 	
-    virtual int channel_close() {
+    virtual int shutdwon() {
         this->stop_flag.exchange(true);
         this->get_scheduler()->channel_shutdown(this);
         return 0;
@@ -265,7 +265,7 @@ public:
 
         ret = this->get_scheduler()->channel_send_one(this);
         if (ret < 0) { 
-            this->channel_close();
+            this->shutdwon();
         }
 
         return 0;
@@ -285,6 +285,7 @@ protected:
         this->msg_seq = 0;
         this->req_seq = 0;
         this->ref = 1;
+        this->stop_flag = false;
 	}
 	
     /*for server*/
@@ -294,6 +295,7 @@ protected:
         this->msg_seq = 0;
         this->req_seq = 0;
         this->ref = 1;
+        this->stop_flag = false;
 	}
 
 protected:
