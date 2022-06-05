@@ -85,7 +85,8 @@ make
   * 其它一些重要任务与组件
     * [关于定时器](docs/about-timer.md)
     * [关于计数器](docs/about-counter.md)
-    * [条件任务与资源池](docs/about-conditional.md)
+    * [条件任务与观察者模式](docs/about-conditional.md)
+    * [关于资源池](docs/about-resource-pool.md)
     * [模块任务](/docs/about-module.md)
     * [DAG图任务](/docs/tutorial-11-graph_task.md)
   * 服务治理
@@ -96,6 +97,7 @@ make
   * 内置客户端
     * [异步MySQL客户端：mysql_cli](docs/tutorial-12-mysql_cli.md)
     * [异步kafka客户端：kafka_cli](docs/tutorial-13-kafka_cli.md)
+    * [异步DNS客户端：dns_cli](docs/tutorial-17-dns_cli.md)
 
 #### 系统设计特点
 
