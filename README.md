@@ -1,11 +1,11 @@
-[中文版入口](README_cn.md)
+[简体中文版（推荐）](README_cn.md)
 
 ## Sogou C++ Workflow
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
 [![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/) 
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)](https://img.shields.io/badge/platform-linux%20%7C%20macos20%7C%20windows-lightgrey.svg)
-[![Build Status](https://travis-ci.com/sogou/workflow.svg?branch=master)](https://travis-ci.com/sogou/workflow)
+[![Build Status](https://img.shields.io/github/workflow/status/sogou/workflow/ci%20build)](https://github.com/sogou/workflow/actions?query=workflow%3A%22ci+build%22++)
 
 As **Sogou\`s C++ server engine**, Sogou C++ Workflow supports almost all **back-end C++ online services** of Sogou, including all search services, cloud input method, online advertisements, etc., handling more than **10 billion** requests every day. This is an **enterprise-level programming engine** in light and elegant design which can satisfy most C++ back-end development requirements.
 
@@ -41,7 +41,6 @@ int main()
 * To realize any **high-performance** and **high-concurrency** back-end service with a very complex relationship between computing and networking.
 * To build a **micro service** system.
   * This project has built-in **service governance** and **load balancing** features.
-  * The [workflow-k8s](https://github.com/sogou/workflow-k8s) plugin enables using name service with Kubernetes automated deployment.
 * Wiki link : [PaaS Architecture](https://github.com/sogou/workflow/wiki)
 
 #### Compiling and running environment
@@ -113,7 +112,7 @@ sudo apt-get install libworkflow1
   * [Asynchronous MySQL client：mysql\_cli](docs/en/tutorial-12-mysql_cli.md)
   * [Asynchronous Kafka client: kafka\_cli](docs/en/tutorial-13-kafka_cli.md)
 
-#### System design features
+#### Programming paradigm
 
 We believe that a typical back-end program=protocol+algorithm+workflow and should be developed completely independently.
 

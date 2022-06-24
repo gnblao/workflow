@@ -744,6 +744,12 @@ public:
 public:
 	void *user_data;
 
+public:
+	void set_callback(std::function<void (const WFModuleTask *)> cb)
+	{
+		this->callback = std::move(cb);
+	}
+
 protected:
 	virtual SubTask *done()
 	{
@@ -752,7 +758,6 @@ protected:
 		if (this->callback)
 			this->callback(this);
 
-		this->first = NULL;
 		delete this;
 		return series->pop();
 	}
@@ -776,17 +781,8 @@ public:
 protected:
 	virtual ~WFModuleTask()
 	{
-		SubTask *task = this->first;
-
-		if (task)
-		{
-			this->SeriesWork::callback = nullptr;
-			do
-			{
-				delete task;
-				task = this->pop_task();
-			} while (task);
-		}
+		if (!this->is_finished())
+			this->dismiss_recursive();
 	}
 };
 

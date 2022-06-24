@@ -33,6 +33,7 @@ SeriesWork::SeriesWork(SubTask *first, series_callback_t&& cb) :
 	this->back = 0;
 	this->in_parallel = false;
 	this->canceled = false;
+	this->finished = false;
 	assert(!series_of(first));
 	first->set_pointer(this);
 	this->first = first;
@@ -44,7 +45,6 @@ void SeriesWork::dismiss_recursive()
 {
 	SubTask *task = first;
 
-	this->in_parallel = false;
 	this->callback = nullptr;
 	do
 	{
@@ -140,6 +140,8 @@ SubTask *SeriesWork::pop_task()
 	this->mutex.unlock();
 	if (!task)
 	{
+		this->finished = true;
+
 		if (this->callback)
 			this->callback(this);
 
@@ -228,7 +230,10 @@ ParallelWork::~ParallelWork()
 	size_t i;
 
 	for (i = 0; i < this->subtasks_nr; i++)
+	{
+		this->all_series[i]->in_parallel = false;
 		this->all_series[i]->dismiss_recursive();
+	}
 
 	delete []this->subtasks;
 }
