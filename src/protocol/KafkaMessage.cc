@@ -1614,6 +1614,7 @@ KafkaMessage::KafkaMessage()
 	kafka_parser_init(this->parser);
 	this->stream = new EncodeStream;
 	this->api_type = Kafka_Unknown;
+	this->correlation_id = 0;
 	this->cur_size = 0;
 }
 
@@ -1757,7 +1758,7 @@ int KafkaMessage::encode_head()
 	append_i32(this->headbuf, 0);
 	append_i16(this->headbuf, this->api_type);
 	append_i16(this->headbuf, this->api_version);
-	append_i32(this->headbuf, 0);
+	append_i32(this->headbuf, this->correlation_id);
 	append_string(this->headbuf, this->config.get_client_id());
 
 	return 0;
@@ -2802,10 +2803,12 @@ int KafkaResponse::parse_response()
 
 	void *buf = this->parser->msgbuf;
 	size_t size = this->parser->message_size;
-	int correlation_id;
+	int32_t correlation_id;
 
 	if (parse_i32(&buf, &size, &correlation_id) < 0)
 		return -1;
+
+	this->correlation_id = correlation_id;
 
 	int ret = it->second(&buf, &size);
 
