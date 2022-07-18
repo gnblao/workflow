@@ -6,7 +6,7 @@
  ************************************************************************/
 #include "WFChannel.h"
 #include "WFFacilities.h"
-#include "WebSocketChannelImpl.h" 
+#include "WebSocketChannelImpl.h"
 #include <atomic>
 #include <functional>
 #include <mutex>
@@ -15,14 +15,13 @@
 #ifndef _SRC_CLIENT_WFWEBSOCKETCLIENT_H_
 #define _SRC_CLIENT_WFWEBSOCKETCLIENT_H_
 
-class WFWebSocketClient {
+class WFWebSocketClient
+{
 public:
-    explicit WFWebSocketClient(std::string uri): 
-        retry_(false),
-        wg_(new WFFacilities::WaitGroup(1)),
-        client_(new WebSocketChannelClient(
-                std::bind(&WFWebSocketClient::channel_done_callback, 
-                    this, std::placeholders::_1)))
+    explicit WFWebSocketClient(std::string uri)
+        : retry_(false), wg_(new WFFacilities::WaitGroup(1)),
+          client_(new WebSocketChannelClient(
+              std::bind(&WFWebSocketClient::channel_done_callback, this, std::placeholders::_1)))
     {
         URIParser::parse(uri, this->uri_);
         this->client_->init(this->uri_);
@@ -30,33 +29,39 @@ public:
         this->client_->start();
     }
 
-    virtual ~WFWebSocketClient() {
+    virtual ~WFWebSocketClient()
+    {
         if (this->client_)
             this->client_->shutdown();
 
-        if(this->wg_) {
+        if (this->wg_)
+        {
             this->wg_->wait();
             delete this->wg_;
         }
     }
-    
-    bool send_text(const char *data, size_t size) {
+
+    bool send_text(const char *data, size_t size)
+    {
         if (!this->open())
             return false;
 
         return !this->client_->send_text(data, size);
     }
+
 protected:
-    void channel_done_callback(WFChannel::BaseTask *) 
+    void channel_done_callback(WFChannel::BaseTask *)
     {
         std::unique_lock<std::mutex> lck(this->mutex_);
         this->client_ = nullptr;
         this->wg_->done();
-        delete this->wg_;
+
+        auto wg   = this->wg_;
         this->wg_ = nullptr;
+        delete wg;
     }
-    
-    bool open() 
+
+    bool open()
     {
         if (!this->client_ && !this->retry_)
             return false;
@@ -72,11 +77,11 @@ protected:
     }
 
 private:
-    bool reset() {
+    bool reset()
+    {
         std::unique_lock<std::mutex> lck(this->mutex_);
         this->client_ = new WebSocketChannelClient(
-                std::bind(&WFWebSocketClient::channel_done_callback, this,
-                    std::placeholders::_1));
+            std::bind(&WFWebSocketClient::channel_done_callback, this, std::placeholders::_1));
         this->wg_ = new WFFacilities::WaitGroup(1);
         this->client_->init(this->uri_);
         this->client_->set_keep_alive(-1);
@@ -85,12 +90,11 @@ private:
     }
 
 private:
-    bool retry_;
-    ParsedURI uri_;
+    bool                     retry_;
+    ParsedURI                uri_;
     WFFacilities::WaitGroup *wg_;
-    WebSocketChannelClient *client_;
-    std::mutex mutex_;
+    WebSocketChannelClient  *client_;
+    std::mutex               mutex_;
 };
 
-
-#endif  // _SRC_CLIENT_WFWEBSOCKETCLIENT_H_
+#endif // _SRC_CLIENT_WFWEBSOCKETCLIENT_H_
