@@ -1801,9 +1801,6 @@ int KafkaMessage::append(const void *buf, size_t *size)
 		ret = -1;
 	}
 
-	if (ret == 1 || ret < 0)
-		return ret;
-
 	return ret;
 }
 
@@ -3179,7 +3176,7 @@ int KafkaResponse::parse_produce(void **buf, size_t *size)
 				record = list_entry(pos, KafkaRecord, list);
 				record->set_status(ptr->error);
 
-				if (ptr->error != KAFKA_NONE)
+				if (ptr->error)
 					continue;
 
 				record->set_offset(base_offset++);
