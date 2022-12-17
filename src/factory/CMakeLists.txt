@@ -11,6 +11,7 @@ set(SRC
 	WFResourcePool.cc
 	HttpTaskImpl.cc
 	WFResourcePool.cc
+	WFMessageQueue.cc
 	FileTaskImpl.cc
     WebSocketChannelImpl.cc
 )

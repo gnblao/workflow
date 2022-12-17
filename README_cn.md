@@ -67,6 +67,8 @@ sudo apt-get install workflow1
 ~~~
 注意Ubuntu Linux只有最新22.04版自带workflow。更推荐用git直接下载最新源代码编译。
 
+如果你想用xmake去构建 workflow, 你可以看 [xmake build document](docs/xmake.md)
+
 # 示例教程
   * Client基础
     * [创建第一个任务：wget](docs/tutorial-01-wget.md)
@@ -94,13 +96,15 @@ sudo apt-get install workflow1
   * 其它一些重要任务与组件
     * [关于定时器](docs/about-timer.md)
     * [关于计数器](docs/about-counter.md)
-    * [条件任务与观察者模式](docs/about-conditional.md)
-    * [关于资源池](docs/about-resource-pool.md)
     * [模块任务](/docs/about-module.md)
     * [DAG图任务](/docs/tutorial-11-graph_task.md)
+  * 任务间通信
+    * [条件任务与观察者模式](docs/about-conditional.md)
+    * [资源池与消息队列](docs/about-resource-pool.md)
   * 服务治理
     * [关于服务治理](docs/about-service-governance.md)
     * [Upstream更多文档](docs/about-upstream.md)
+    * [自定义名称服务策略](docs/tutorial-15-name_service.md)
   * 连接上下文的使用
     * [关于连接上下文](docs/about-connection-context.md)
   * 内置客户端

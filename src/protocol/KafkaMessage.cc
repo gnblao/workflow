@@ -1222,8 +1222,8 @@ int KafkaMessage::parse_message_set(void **buf, size_t *size,
 			record->timestamp = timestamp;
 			record->offset = offset;
 			record->toppar = toppar->get_raw_ptr();
-			record->key_is_move = 1;
-			record->value_is_move = 1;
+			record->key_is_moved = 1;
+			record->value_is_moved = 1;
 			record->value = payload;
 			record->value_len = payload_len;
 			list_add_tail(kafka_record->get_list(), record_list);
@@ -1375,8 +1375,8 @@ int KafkaMessage::parse_message_record(void **buf, size_t *size,
 			return -1;
 		}
 
-		header->key_is_move = 1;
-		header->value_is_move = 1;
+		header->key_is_moved = 1;
+		header->value_is_moved = 1;
 
 		list_add_tail(&header->list, &record->header_list);
 	}
@@ -1474,8 +1474,8 @@ int KafkaMessage::parse_record_batch(void **buf, size_t *size,
 		KafkaRecord *record = new KafkaRecord;
 		record->set_offset(hdr.base_offset);
 		record->set_timestamp(hdr.base_timestamp);
-		record->get_raw_ptr()->key_is_move = 1;
-		record->get_raw_ptr()->value_is_move = 1;
+		record->get_raw_ptr()->key_is_moved = 1;
+		record->get_raw_ptr()->value_is_moved = 1;
 		record->get_raw_ptr()->toppar = toppar->get_raw_ptr();
 
 		switch (parse_message_record(&p, &n, record->get_raw_ptr()))
@@ -2818,7 +2818,7 @@ int KafkaResponse::parse_response()
 		return -1;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int kafka_meta_parse_broker(void **buf, size_t *size,
@@ -2882,7 +2882,9 @@ static bool kafka_broker_get_leader(int leader_id, KafkaBrokerList *broker_list,
 		if (bbroker->get_node_id() == leader_id)
 		{
 			kafka_broker_t *broker = bbroker->get_raw_ptr();
+
 			kafka_broker_deinit(leader);
+			kafka_broker_init(leader);
 			leader->node_id = broker->node_id;
 			leader->port = broker->port;
 
@@ -3726,14 +3728,14 @@ int KafkaResponse::parse_apiversions(void **buf, size_t *size)
 int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 {
 	std::string mechanism;
+	int16_t error = 0;
 	int32_t cnt, i;
-	int16_t error;
 
 	CHECK_RET(parse_i16(buf, size, &error));
 	if (error != 0)
 	{
-		errno = EBADMSG;
-		return -1;
+		this->broker.get_raw_ptr()->error = error;
+		return 1;
 	}
 
 	CHECK_RET(parse_i32(buf, size, &cnt));
@@ -3746,17 +3748,23 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 			break;
 	}
 
-	if (i >= cnt)
-	{
-		errno = EBADMSG;
-		return -1;
-	}
-
-	if (!this->config.new_client(this->sasl))
+	if (i == cnt)
 	{
 		this->broker.get_raw_ptr()->error = KAFKA_SASL_AUTHENTICATION_FAILED;
-		errno = EBADMSG;
-		return -1;
+		return 1;
+	}
+
+	for (i++; i < cnt; i++)
+		CHECK_RET(parse_string(buf, size, mechanism));
+
+	errno = 0;
+	if (!this->config.new_client(this->sasl))
+	{
+		if (errno)
+			return -1;
+
+		this->broker.get_raw_ptr()->error = KAFKA_SASL_AUTHENTICATION_FAILED;
+		return 1;
 	}
 
 	return 0;
@@ -3765,27 +3773,30 @@ int KafkaResponse::parse_saslhandshake(void **buf, size_t *size)
 int KafkaResponse::parse_saslauthenticate(void **buf, size_t *size)
 {
 	std::string error_message;
-	int16_t error;
+	std::string auth_bytes;
+	int16_t error = 0;
 
 	CHECK_RET(parse_i16(buf, size, &error));
 	CHECK_RET(parse_string(buf, size, error_message));
+	CHECK_RET(parse_bytes(buf, size, auth_bytes));
 
 	if (error != 0)
 	{
-		errno = EBADMSG;
-		return -1;
+		this->broker.get_raw_ptr()->error = error;
+		return 1;
 	}
 
-	std::string auth_bytes;
-	CHECK_RET(parse_bytes(buf, size, auth_bytes));
+	errno = 0;
 	if (this->config.get_raw_ptr()->recv(auth_bytes.c_str(),
 										 auth_bytes.size(),
 										 this->config.get_raw_ptr(),
 										 this->sasl) != 0)
 	{
+		if (errno)
+			return -1;
+
 		this->broker.get_raw_ptr()->error = KAFKA_SASL_AUTHENTICATION_FAILED;
-		errno = EBADMSG;
-		return -1;
+		return 1;
 	}
 
 	return 0;
@@ -3808,7 +3819,7 @@ int KafkaResponse::handle_sasl_continue()
 		ret = this->feedback(iovecs[i].iov_base, iovecs[i].iov_len);
 		if (ret != (int)iovecs[i].iov_len)
 		{
-			if (ret > 0)
+			if (ret >= 0)
 				errno = EAGAIN;
 			return -1;
 		}
@@ -3821,34 +3832,33 @@ int KafkaResponse::append(const void *buf, size_t *size)
 {
 	int ret = KafkaMessage::append(buf, size);
 
-	if (ret == 1)
+	if (ret <= 0)
+		return ret;
+
+	ret = this->parse_response();
+	if (ret != 0)
+		return ret;
+
+	if (this->api_type == Kafka_SaslHandshake)
 	{
-		if (this->parse_response() == 0)
+		this->api_type = Kafka_SaslAuthenticate;
+		this->clear_buf();
+		return this->handle_sasl_continue();
+	}
+	else if (this->api_type == Kafka_SaslAuthenticate)
+	{
+		if (strncasecmp(this->config.get_sasl_mech(), "SCRAM", 5) == 0)
 		{
-			if (this->api_type == Kafka_SaslHandshake)
-			{
-				this->api_type = Kafka_SaslAuthenticate;
-				this->clear_buf();
-				ret = this->handle_sasl_continue();
-			}
-			else if (this->api_type == Kafka_SaslAuthenticate)
-			{
-				if (strncasecmp(this->config.get_sasl_mech(), "SCRAM", 5) == 0)
-				{
-					this->clear_buf();
-					if (this->sasl->scram.state !=
-							KAFKA_SASL_SCRAM_STATE_CLIENT_FINISHED)
-						ret = this->handle_sasl_continue();
-					else
-						this->sasl->status = 1;
-				}
-			}
+			this->clear_buf();
+			if (this->sasl->scram.state !=
+					KAFKA_SASL_SCRAM_STATE_CLIENT_FINISHED)
+				return this->handle_sasl_continue();
+			else
+				this->sasl->status = 1;
 		}
-		else
-			ret = -1;
 	}
 
-	return ret;
+	return 1;
 }
 
 }

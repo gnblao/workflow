@@ -57,7 +57,7 @@ int main(void)
 但是这个线程池比一般的线程池又有更多的功能，比如每个任务有queue name，任务之间还可以组成各种串并联或更复杂的依赖关系。
 
 # 带执行时间限制的go task
-WFGoTask是到目前为止，唯一支持带执行时限的一种任务。通过create_timedgo_task接口，可以创建带时间限制的go task：
+通过create_timedgo_task接口（这里无法重载create_go_task接口），可以创建带时间限制的go task：
 ~~~cpp
 class WFTaskFactory
 {
@@ -110,7 +110,7 @@ int main()
 ~~~cpp
 int main()
 {
-    WFGoTask *task = WFTaskFactory::create_timedgo_task(1, 0, "test", [task]() {
+    WFGoTask *task = WFTaskFactory::create_timedgo_task(1, 0, "test", [&task]() {
         task->user_data = (void *)123;
     });
     task->set_callback([](WFGoTask *task) {
@@ -128,5 +128,23 @@ int main()
     task->start();
     ...
 }
-~~~~~~
+~~~~
+# 重置go task的执行函数
+在某些时候，我们想在go task的执行函数里访问task，如上面的例子，将计算结果写入task的user_data域。  
+上例中，我们使用了引用捕获。但明显引用捕获会有一些问题。比如task本身的生命周期。我们更希望在执行函数里直接捕获go task指针。  
+直接进行值捕获明显是错误的，例如：
+~~~cpp
+WFGoTask *task = WFTaskFactory::create_timedgo_task(1, 0, "test", [task]() {
+        task->user_data = (void *)123;
+    });
+~~~
+这段代码并不能在lambda函数里得到task指针，因为捕获执行时，task还没有赋值。但我们可以通过以下的代码，实现这个需求：
+~~~cpp
+WFGoTask *task = WFTaskFactory::create_timedgo_task(1, 0, "test", [](){});
+WFTaskFactory::reset_go_task(task, [task]() {
+        task->user_data = (void *)123;
+    });
+~~~
+WFTaskFactory::reset_get_task()函数，用于重置go task的执行函数。  
+因为task已经创建完毕，这时候在lambda函数里捕获task，就是一个正确的行为了。
 

@@ -14,6 +14,7 @@
   limitations under the License.
 
   Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Liu Kai (liukaidx@sogou-inc.com)
 */
 
 #include <stdlib.h>
@@ -144,8 +145,7 @@ static int __redis_parse_lf(const char ch, redis_parser_t *parser)
 
 static int __redis_parse_line(redis_parser_t *parser)
 {
-	char *buf = (char *)parser->msgbuf;
-	char *str = buf + parser->msgidx;
+	char *str = parser->msgbuf + parser->msgidx;
 	size_t slen = parser->findidx - parser->msgidx;
 	char data[32];
 	int i, n;
@@ -237,7 +237,7 @@ static int __redis_parse_line(redis_parser_t *parser)
 
 static int __redis_parse_crlf(redis_parser_t *parser)
 {
-	char *buf = (char *)parser->msgbuf;
+	char *buf = parser->msgbuf;
 
 	for (; parser->findidx + 1 < parser->msgsize; parser->findidx++)
 	{
@@ -250,8 +250,6 @@ static int __redis_parse_crlf(redis_parser_t *parser)
 
 static int __redis_parse_nchar(redis_parser_t *parser)
 {
-	//char *buf = (char *)parser->msgbuf;
-
 	if (parser->nchar <= parser->msgsize - parser->msgidx)
 	{
 		redis_reply_set_string((const char *)parser->msgidx, parser->nchar,
@@ -268,7 +266,7 @@ static int __redis_parse_nchar(redis_parser_t *parser)
 //-1 error | 0 continue | 1 finish-one | 2 not-enough
 static int __redis_parser_forward(redis_parser_t *parser)
 {
-	char *buf = (char *)parser->msgbuf;
+	char *buf = parser->msgbuf;
 
 	if (parser->msgidx >= parser->msgsize)
 		return 2;
@@ -360,6 +358,65 @@ static int __redis_parse_done(redis_reply_t *reply, char *buf, int depth)
 	return 1;
 }
 
+static int __redis_split_inline_command(redis_parser_t *parser)
+{
+	char *msg = parser->msgbuf;
+	char *end = msg + parser->msgsize;
+	size_t arr_size = 0;
+	redis_reply_t **ele;
+	char *cur;
+	int ret;
+
+	while (msg != end)
+	{
+		while (msg != end && isspace(*msg))
+			msg++;
+
+		if (msg == end)
+			break;
+
+		arr_size++;
+
+		while (msg != end && !isspace(*msg))
+			msg++;
+	}
+
+	if (arr_size == 0)
+	{
+		parser->msgsize = 0;
+		parser->msgidx = 0;
+		return 0;
+	}
+
+	ret = redis_reply_set_array(arr_size, &parser->reply);
+	if (ret < 0)
+		return ret;
+
+	ele = parser->reply.element;
+	msg = parser->msgbuf;
+
+	while (msg != end)
+	{
+		while (msg != end && isspace(*msg))
+			msg++;
+
+		if (msg == end)
+			break;
+
+		cur = msg;
+		while (cur != end && !isspace(*cur))
+			cur++;
+
+		redis_reply_set_string(msg, cur - msg, *ele);
+
+		msg = cur;
+		ele++;
+	}
+
+	parser->status = REDIS_PARSE_END;
+	return 1;
+}
+
 int redis_parser_append_message(const void *buf, size_t *size,
 								redis_parser_t *parser)
 {
@@ -383,12 +440,30 @@ int redis_parser_append_message(const void *buf, size_t *size,
 		if (!new_base)
 			return -1;
 
-		parser->msgbuf = new_base;
+		parser->msgbuf = (char *)new_base;
 		parser->bufsize = new_size;
 	}
 
-	memcpy((char *)parser->msgbuf + parser->msgsize, buf, *size);
+	memcpy(parser->msgbuf + parser->msgsize, buf, *size);
 	parser->msgsize += *size;
+	if (parser->msgsize > 0 && (isalpha(*parser->msgbuf) ||
+								isspace(*parser->msgbuf)))
+	{
+		while (parser->msgidx < parser->msgsize &&
+			*(parser->msgbuf + parser->msgidx) != '\n')
+		{
+			parser->msgidx++;
+		}
+
+		if (parser->msgidx == parser->msgsize)
+			return 0;
+
+		parser->msgidx++;
+		parser->msgsize = parser->msgidx;
+		*size = parser->msgsize - msgsize_bak;
+
+		return __redis_split_inline_command(parser);
+	}
 
 	do
 	{
@@ -425,6 +500,6 @@ int redis_parser_append_message(const void *buf, size_t *size,
 	} while (parser->status != REDIS_PARSE_END);
 
 	*size = parser->msgidx - msgsize_bak;
-	return __redis_parse_done(&parser->reply, (char *)parser->msgbuf, 0);
+	return __redis_parse_done(&parser->reply, parser->msgbuf, 0);
 }
 

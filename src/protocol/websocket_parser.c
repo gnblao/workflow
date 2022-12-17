@@ -202,7 +202,7 @@ int websocket_parser_parse(websocket_parser_t *parser)
 	websocket_parser_mask_data(parser);
 
 	if (parser->opcode == WebSocketFrameText &&
-		!utf8_check(p, parser->payload_length))
+		parser->payload_length && !utf8_check(p, parser->payload_length))
 	{
 		parser->status_code = WSStatusCodeUnsupportedData;
 		return -1;

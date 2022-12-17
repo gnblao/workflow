@@ -34,99 +34,73 @@
 
 class CommMessageOut;
 struct CommConnEntry;
-class CommConnection
-{
+class CommConnection {
 public:
     CommConnEntry *entry = nullptr;
 
 protected:
-    virtual ~CommConnection()
-    {
-    }
+    virtual ~CommConnection() {}
     friend class Communicator;
 };
 
-class CommTarget
-{
+class CommTarget {
 public:
-    int  init(const struct sockaddr *addr, socklen_t addrlen, int connect_timeout,
-              int response_timeout);
+    int init(const struct sockaddr *addr, socklen_t addrlen, int connect_timeout,
+             int response_timeout);
     void deinit();
 
 public:
-    void get_addr(const struct sockaddr **addr, socklen_t *addrlen) const
-    {
-        *addr    = this->addr;
+    void get_addr(const struct sockaddr **addr, socklen_t *addrlen) const {
+        *addr = this->addr;
         *addrlen = this->addrlen;
     }
 
 protected:
-    void set_ssl(SSL_CTX *ssl_ctx, int ssl_connect_timeout)
-    {
-        this->ssl_ctx             = ssl_ctx;
+    void set_ssl(SSL_CTX *ssl_ctx, int ssl_connect_timeout) {
+        this->ssl_ctx = ssl_ctx;
         this->ssl_connect_timeout = ssl_connect_timeout;
     }
 
-    SSL_CTX *get_ssl_ctx() const
-    {
-        return this->ssl_ctx;
-    }
+    SSL_CTX *get_ssl_ctx() const { return this->ssl_ctx; }
 
 private:
-    virtual int create_connect_fd()
-    {
-        return socket(this->addr->sa_family, SOCK_STREAM, 0);
-    }
+    virtual int create_connect_fd() { return socket(this->addr->sa_family, SOCK_STREAM, 0); }
 
-    virtual CommConnection *new_connection(int connect_fd)
-    {
-        return new CommConnection;
-    }
+    virtual CommConnection *new_connection(int connect_fd) { return new CommConnection; }
 
-    virtual int init_ssl(SSL *ssl)
-    {
-        return 0;
-    }
+    virtual int init_ssl(SSL *ssl) { return 0; }
 
 public:
-    virtual void release(int keep_alive)
-    {
-    }
+    virtual void release(int keep_alive) {}
 
 private:
     struct sockaddr *addr;
-    socklen_t        addrlen;
-    int              connect_timeout;
-    int              response_timeout;
-    int              ssl_connect_timeout;
-    SSL_CTX         *ssl_ctx;
+    socklen_t addrlen;
+    int connect_timeout;
+    int response_timeout;
+    int ssl_connect_timeout;
+    SSL_CTX *ssl_ctx;
 
 private:
     struct list_head idle_list;
-    pthread_mutex_t  mutex;
+    pthread_mutex_t mutex;
 
 public:
-    virtual ~CommTarget()
-    {
-    }
+    virtual ~CommTarget() {}
     friend class CommSession;
     friend class Communicator;
 };
 
-class CommMessageOut
-{
+class CommMessageOut {
 private:
     virtual int encode(struct iovec vectors[], int max) = 0;
 
 public:
-    virtual ~CommMessageOut()
-    {
-    }
+    virtual ~CommMessageOut() {}
     friend class Communicator;
 };
 
-class CommMessageIn : private poller_message_t
-{
+class CommMessageIn : private poller_message_t {
 private:
     virtual int append(const void *buf, size_t *size) = 0;
 
@@ -141,106 +115,60 @@ private:
     CommConnEntry *entry = nullptr;
 
 public:
-    long long          seq{0};            /*only channel*/
+    long long seq{0};                     /*only channel*/
     class CommSession *session = nullptr; /*only channel*/
 
-    void set_seq(long long seq)
-    {
-        this->seq = seq;
-    }
-    long long get_seq()
-    {
-        return this->seq;
-    }
+    void set_seq(long long seq) { this->seq = seq; }
+    long long get_seq() { return this->seq; }
 
 public:
-    virtual ~CommMessageIn()
-    {
-    }
+    virtual ~CommMessageIn() {}
     friend class Communicator;
 };
 
-#define CS_STATE_SUCCESS  0
-#define CS_STATE_ERROR    1
-#define CS_STATE_STOPPED  2
-#define CS_STATE_TOREPLY  3 /* for service session only. */
+#define CS_STATE_SUCCESS 0
+#define CS_STATE_ERROR 1
+#define CS_STATE_STOPPED 2
+#define CS_STATE_TOREPLY 3  /* for service session only. */
 #define CS_STATE_SHUTDOWN 4 /* for channel only */
 
-class CommSession
-{
+class CommSession {
 private:
     virtual CommMessageOut *message_out() = 0;
-    virtual CommMessageIn  *message_in()  = 0;
-    virtual int             send_timeout()
-    {
-        return -1;
-    }
-    virtual int receive_timeout()
-    {
-        return -1;
-    }
-    virtual int keep_alive_timeout()
-    {
-        return 0;
-    }
-    virtual int first_timeout()
-    {
-        return 0;
-    } /* for client session only. */
+    virtual CommMessageIn *message_in() = 0;
+    virtual int send_timeout() { return -1; }
+    virtual int receive_timeout() { return -1; }
+    virtual int keep_alive_timeout() { return 0; }
+    virtual int first_timeout() { return 0; } /* for client session only. */
     virtual void handle(int state, int error) = 0;
 
 protected:
-    CommTarget *get_target() const
-    {
-        return this->target;
-    }
-    CommConnection *get_connection() const
-    {
-        return this->conn;
-    }
-    CommMessageOut *get_message_out() const
-    {
-        return this->out;
-    }
-    CommMessageIn *get_message_in() const
-    {
-        return this->in;
-    }
-    long long get_seq() const
-    {
-        return this->seq;
-    }
+    CommTarget *get_target() const { return this->target; }
+    CommConnection *get_connection() const { return this->conn; }
+    CommMessageOut *get_message_out() const { return this->out; }
+    CommMessageIn *get_message_in() const { return this->in; }
+    long long get_seq() const { return this->seq; }
 
-    virtual bool is_channel()
-    {
-        return false;
-    } /* for client channel only*/
-    CommMessageOut **get_out()
-    {
-        return &this->out;
-    }
-    CommMessageIn **get_in()
-    {
-        return &this->in;
-    }
+    virtual bool is_channel() { return false; } /* for client channel only*/
+    CommMessageOut **get_out() { return &this->out; }
+    CommMessageIn **get_in() { return &this->in; }
 
 private:
-    CommTarget     *target;
+    CommTarget *target;
     CommConnection *conn;
     CommMessageOut *out;
-    CommMessageIn  *in;
-    long long       seq;
+    CommMessageIn *in;
+    long long seq;
 
 private:
     struct timespec begin_time;
-    int             timeout;
-    int             passive;
+    int timeout;
+    int passive;
 
 public:
-    CommSession() : target(nullptr), conn(nullptr), out(nullptr), in(nullptr)
-    {
+    CommSession() : target(nullptr), conn(nullptr), out(nullptr), in(nullptr) {
         this->passive = 0;
-        this->seq     = 0;
+        this->seq = 0;
     }
 
     virtual ~CommSession();
@@ -248,69 +176,49 @@ public:
     friend class Communicator;
 };
 
-class CommService
-{
+class CommService {
 public:
-    int  init(const struct sockaddr *bind_addr, socklen_t addrlen, int listen_timeout,
-              int response_timeout);
+    int init(const struct sockaddr *bind_addr, socklen_t addrlen, int listen_timeout,
+             int response_timeout);
     void deinit();
 
     int drain(int max);
 
 public:
-    void get_addr(const struct sockaddr **addr, socklen_t *addrlen) const
-    {
-        *addr    = this->bind_addr;
+    void get_addr(const struct sockaddr **addr, socklen_t *addrlen) const {
+        *addr = this->bind_addr;
         *addrlen = this->addrlen;
     }
 
-    virtual bool is_channel()
-    {
-        return false;
-    }
+    virtual bool is_channel() { return false; }
 
 protected:
-    void set_ssl(SSL_CTX *ssl_ctx, int ssl_accept_timeout)
-    {
-        this->ssl_ctx            = ssl_ctx;
+    void set_ssl(SSL_CTX *ssl_ctx, int ssl_accept_timeout) {
+        this->ssl_ctx = ssl_ctx;
         this->ssl_accept_timeout = ssl_accept_timeout;
     }
 
-    SSL_CTX *get_ssl_ctx() const
-    {
-        return this->ssl_ctx;
-    }
+    SSL_CTX *get_ssl_ctx() const { return this->ssl_ctx; }
 
 private:
     virtual CommSession *new_session(long long seq, CommConnection *conn) = 0;
-    virtual void         handle_stop(int error)
-    {
-    }
+    virtual void handle_stop(int error) {}
     virtual void handle_unbound() = 0;
 
 private:
-    virtual int create_listen_fd()
-    {
-        return socket(this->bind_addr->sa_family, SOCK_STREAM, 0);
-    }
+    virtual int create_listen_fd() { return socket(this->bind_addr->sa_family, SOCK_STREAM, 0); }
 
-    virtual CommConnection *new_connection(int accept_fd)
-    {
-        return new CommConnection;
-    }
+    virtual CommConnection *new_connection(int accept_fd) { return new CommConnection; }
 
-    virtual int init_ssl(SSL *ssl)
-    {
-        return 0;
-    }
+    virtual int init_ssl(SSL *ssl) { return 0; }
 
 private:
     struct sockaddr *bind_addr;
-    socklen_t        addrlen;
-    int              listen_timeout;
-    int              response_timeout;
-    int              ssl_accept_timeout;
-    SSL_CTX         *ssl_ctx;
+    socklen_t addrlen;
+    int listen_timeout;
+    int response_timeout;
+    int ssl_accept_timeout;
+    SSL_CTX *ssl_ctx;
 
 private:
     void incref();
@@ -322,30 +230,25 @@ private:
 
 private:
     struct list_head alive_list;
-    pthread_mutex_t  mutex;
+    pthread_mutex_t mutex;
 
 public:
-    virtual ~CommService()
-    {
-    }
+    virtual ~CommService() {}
     friend class CommServiceTarget;
     friend class Communicator;
 };
 
-#define SS_STATE_COMPLETE  0
-#define SS_STATE_ERROR     1
+#define SS_STATE_COMPLETE 0
+#define SS_STATE_ERROR 1
 #define SS_STATE_DISRUPTED 2
 
-class SleepSession
-{
+class SleepSession {
 private:
-    virtual int  duration(struct timespec *value) = 0;
-    virtual void handle(int state, int error)     = 0;
+    virtual int duration(struct timespec *value) = 0;
+    virtual void handle(int state, int error) = 0;
 
 public:
-    virtual ~SleepSession()
-    {
-    }
+    virtual ~SleepSession() {}
     friend class Communicator;
 };
 
@@ -355,10 +258,9 @@ public:
 #include "IOService_thread.h"
 #endif
 
-class Communicator
-{
+class Communicator {
 public:
-    int  init(size_t poller_threads, size_t handler_threads);
+    int init(size_t poller_threads, size_t handler_threads);
     void deinit();
 
     int request(CommSession *session, CommTarget *target);
@@ -366,31 +268,29 @@ public:
 
     int push(const void *buf, size_t size, CommSession *session);
 
-    int  bind(CommService *service);
+    int bind(CommService *service);
     void unbind(CommService *service);
 
     int sleep(SleepSession *session);
 
-    int  io_bind(IOService *service);
+    int io_bind(IOService *service);
     void io_unbind(IOService *service);
 
-    int  channel_send_one(CommSession *session);
+    int channel_send_one(CommSession *session);
     void channel_shutdown(CommSession *session);
-
-private:
-    int channel_send_callback(CommSession *session);
 
 public:
     int is_handler_thread() const;
     int increase_handler_thread();
 
 private:
-    struct __mpoller  *mpoller;
-    struct __msgqueue *queue;
+    struct __mpoller *mpoller;
+    struct __msgqueue *msgqueue;
     struct __thrdpool *thrdpool;
-    int                stop_flag;
+    int stop_flag;
 
 private:
+    int channel_send_callback(CommSession *session);
     int create_poller(size_t poller_threads);
 
     int create_handler_threads(size_t handler_threads);
@@ -443,22 +343,20 @@ private:
     static int first_timeout_send(CommSession *session);
     static int first_timeout_recv(CommSession *session);
 
-    static int append(const void *buf, size_t *size, poller_message_t *msg);
+    static int append_request(const void *buf, size_t *size, poller_message_t *msg);
+    static int append_reply(const void *buf, size_t *size, poller_message_t *msg);
 
-    static int create_service_session(struct CommConnEntry *entry);
-
-    static poller_message_t *create_message(void *context);
+    static poller_message_t *create_request(void *context);
+    static poller_message_t *create_reply(void *context);
 
     static int partial_written(size_t n, void *context);
 
-    static void callback(struct poller_result *res, void *context);
-
     static void *accept(const struct sockaddr *addr, socklen_t addrlen, int sockfd, void *context);
 
+    static void callback(struct poller_result *res, void *context);
+
 public:
-    virtual ~Communicator()
-    {
-    }
+    virtual ~Communicator() {}
 };
 
 #endif
