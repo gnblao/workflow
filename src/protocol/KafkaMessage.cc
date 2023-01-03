@@ -2874,37 +2874,29 @@ static int kafka_meta_parse_broker(void **buf, size_t *size,
 static bool kafka_broker_get_leader(int leader_id, KafkaBrokerList *broker_list,
 									kafka_broker_t *leader)
 {
-	broker_list->rewind();
 	KafkaBroker *bbroker;
 
+	broker_list->rewind();
 	while ((bbroker = broker_list->get_next()) != NULL)
 	{
 		if (bbroker->get_node_id() == leader_id)
 		{
 			kafka_broker_t *broker = bbroker->get_raw_ptr();
 
-			kafka_broker_deinit(leader);
-			kafka_broker_init(leader);
-			leader->node_id = broker->node_id;
-			leader->port = broker->port;
-
 			char *host = strdup(broker->host);
 			if (host)
 			{
-				char *rack;
+				char *rack = NULL;
 
 				if (broker->rack)
 					rack = strdup(broker->rack);
 
 				if (!broker->rack || rack)
 				{
-					if (broker->rack)
-						leader->rack = rack;
-
-					leader->to_addr = broker->to_addr;
-					memcpy(&leader->addr, &broker->addr, sizeof(struct sockaddr_storage));
-					leader->addrlen = broker->addrlen;
+					kafka_broker_deinit(leader);
+					*leader = *broker;
 					leader->host = host;
+					leader->rack = rack;
 					return true;
 				}
 
@@ -3027,6 +3019,7 @@ static int kafka_meta_parse_topic(void **buf, size_t *size,
 								  KafkaMetaList *meta_list,
 								  KafkaBrokerList *broker_list)
 {
+	KafkaMetaList lst;
 	int32_t topic_cnt;
 	CHECK_RET(parse_i32(buf, size, &topic_cnt));
 
@@ -3047,15 +3040,21 @@ static int kafka_meta_parse_topic(void **buf, size_t *size,
 		if (!meta)
 			return -1;
 
-		kafka_meta_t *ptr = meta->get_raw_ptr();
+		KafkaMeta new_mta;
+		new_mta.set_topic(topic_name);
+
+		kafka_meta_t *ptr = new_mta.get_raw_ptr();
 		ptr->error = error;
 
 		if (api_version >= 1)
 			CHECK_RET(parse_i8(buf, size, &ptr->is_internal));
 
-		CHECK_RET(kafka_meta_parse_partition(buf, size, meta, broker_list));
+		CHECK_RET(kafka_meta_parse_partition(buf, size, &new_mta, broker_list));
+
+		lst.add_item(std::move(new_mta));
 	}
 
+	*meta_list = std::move(lst);
 	return 0;
 }
 
