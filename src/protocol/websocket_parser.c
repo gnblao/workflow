@@ -58,7 +58,6 @@ void websocket_parser_init(websocket_parser_t *parser)
 	parser->payload_length = 0;
 	parser->payload_data = NULL;
 	parser->nreceived = 0;
-	parser->is_server = 0;
 	parser->status_code = WSStatusCodeUndefined;
 	parser->masking_key_offset = 0;
 	memset(parser->masking_key, 0, WS_MASKING_KEY_LENGTH);

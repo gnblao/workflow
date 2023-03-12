@@ -38,33 +38,19 @@ public:
 	int get_opcode() const;
 
 	void set_masking_key(uint32_t masking_key);
-
-	bool set_text_data(const char *data);
-	bool set_text_data(const char *data, size_t size, bool fin);
+	uint32_t get_masking_key() const;
 
 	void set_fin(bool fin) {this->parser->fin = fin;};
 	bool get_fin() {return this->parser->fin;};
 	
-    bool set_binary_data(const char *data, size_t size);
-	bool set_binary_data(const char *data, size_t size, bool fin);
-
-	bool get_data(const char **data, size_t *size) const;
-
-	bool finished() const;
+    bool set_frame(const char *data, size_t size, enum ws_opcode opcode, bool fin);
 
     int get_status_code();
-    bool set_status_code_data(int status_code, const char *data);
-    bool set_status_code_data(int status_code, const char *data, size_t size);
-public:
-	void set_client() { this->parser->is_server = 0; }
-	void set_server() { this->parser->is_server = 1; }
-	const websocket_parser_t *get_parser() { return this->parser; }
-	bool set_data(const websocket_parser_t *parser);
-	uint32_t get_masking_key() const;
+    bool set_status_code_data(short status_code, const char *data);
+    bool set_status_code_data(short status_code, const char *data, size_t size);
 
-	virtual int append_data(const void *buf, size_t size);
-private:
-	websocket_parser_t *parser;
+public:
+	const websocket_parser_t *get_parser() { return this->parser; }
 
 protected:
 	virtual int encode(struct iovec vectors[], int max);
@@ -84,6 +70,9 @@ public:
 
 	WebSocketFrame(WebSocketFrame&& msg);
 	WebSocketFrame& operator = (WebSocketFrame&& msg);
+
+private:
+	websocket_parser_t *parser;
 };
 
 } // end namespace protocol
