@@ -42,6 +42,9 @@ public:
         channel->set_auto_gen_mkey(this->auto_gen_mkey);
         channel->set_ping_interval(this->ping_interval);
         
+        channel->set_process_text_fn(this->process_text_fn);
+        channel->set_process_binary_fn(this->process_binary_fn);
+
         return channel;
     }
     
@@ -58,7 +61,13 @@ public:
     void set_ping_interval(int millisecond) {this->ping_interval = millisecond;}
 	void set_sec_protocol(const std::string &protocol) { this->sec_protocol = protocol;}
 	void set_sec_version(const std::string &version) { this->sec_version = version;}
-
+    
+    void set_process_binary_fn(std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> fn) {
+        this->process_binary_fn = fn; 
+    }
+    void set_process_text_fn(std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> fn) {
+        this->process_text_fn = fn; 
+    }
 protected:
     virtual bool is_channel() {return true;}
 
@@ -67,6 +76,9 @@ private:
 	bool auto_gen_mkey;         // random Masking-Key
 	std::string sec_protocol;   // Sec-WebSocket-Protocol
 	std::string sec_version;    // Sec-WebSocket-Version
+    
+    std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> process_text_fn;
+    std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> process_binary_fn;
 };
 
 #endif  // _SRC_SERVER_WFWEBSOCKETSERVER_H_

@@ -34,19 +34,12 @@
 
 using namespace protocol;
 
-void process(WSFrame *task)
-{
-
-	if (task->get_msg()->get_opcode() == WebSocketFrameText)
-	{
-		auto parser = task->get_msg()->get_parser();
-		fprintf(stderr, "get text message: [%.*s]\n", (int)parser->payload_length, (char *)parser->payload_data);
-	}
-	else
-	{
-		fprintf(stderr, "opcode=%d\n", task->get_msg()->get_opcode());
-	}
+void process_text(WebSocketChannel *ws, protocol::WebSocketFrame *in) {
+    std::cout << std::string((char *)in->get_parser()->payload_data,
+                             in->get_parser()->payload_length)
+              << std::endl;
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -57,6 +50,7 @@ int main(int argc, char *argv[])
 	}
     
     WFWebSocketClient client(argv[1]);
+    client.set_process_text_fn(process_text);
     
     std::string s125 = "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
     std::string s126 = "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";

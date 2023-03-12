@@ -19,6 +19,17 @@ static WFFacilities::WaitGroup wait_group(1);
 
 void sig_handler(int signo) { wait_group.done(); }
 
+void process_text(WebSocketChannel *ws, protocol::WebSocketFrame *in) {
+    std::cout << "-----data len:" << in->get_parser()->payload_length << std::endl;
+
+    ws->send_frame(
+        (char *)in->get_parser()->payload_data, 
+        in->get_parser()->payload_length,
+        in->get_parser()->payload_length,
+        WebSocketFrameText);
+}
+
+
 int main(int argc, char *argv[]) {
     unsigned short port;
     char *cert_file;
@@ -36,6 +47,7 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, sig_handler);
 
     WFWebSocketServer server;
+    server.set_process_text_fn(process_text);
 
     if (argc == 4) {
         cert_file = argv[2];

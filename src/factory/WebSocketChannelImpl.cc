@@ -94,29 +94,29 @@ static inline std::string __sha1_bin(const std::string &str) {
     return std::string((const char *)md, 20);
 }
 
-int WebSocketTools::send_ping() {
+int WebSocketChannel::send_ping() {
     int ping = this->gen_masking_key();
     return this->send_frame((char *)&ping, sizeof(int), sizeof(int), WebSocketFramePing);
 }
 
 
-int WebSocketTools::send_close(short status_code) {
+int WebSocketChannel::send_close(short status_code) {
     this->handshake_status = WS_HANDSHAKE_CLOSING;
     return this->send_frame((char *)&status_code, sizeof(short), sizeof(short),
             WebSocketFrameConnectionClose);
 }
 
-int WebSocketTools::send_text(const char *data, size_t size) {
+int WebSocketChannel::send_text(const char *data, size_t size) {
    
     this->send_frame(data, size, size, WebSocketFrameText);
     return 0;
 }
 
-int WebSocketTools::send_binary(const char *data, size_t size) {
+int WebSocketChannel::send_binary(const char *data, size_t size) {
     return this->send_frame(data, size, size, WebSocketFrameBinary);
 }
 
-int WebSocketTools::send_frame(const char* buf, size_t len, size_t fragment, enum ws_opcode opcode, std::function<void()> bc) {
+int WebSocketChannel::send_frame(const char* buf, size_t len, size_t fragment, enum ws_opcode opcode, std::function<void()> bc) {
     //std::lock_guard<std::mutex> locker(mutex_);
     if (len <= fragment) {
         return this->__send_frame(buf, len, opcode, true);
@@ -130,7 +130,7 @@ int WebSocketTools::send_frame(const char* buf, size_t len, size_t fragment, enu
     int remain = len - fragment;
     while (remain > fragment) {
         nsend = this->__send_frame(p, fragment, WebSocketFrameContinuation, false);
-        if (nsend < 0) return nsend;
+        if (nsend < 0) return p - buf;
         p += fragment;
         remain -= fragment;
     }
@@ -138,12 +138,12 @@ int WebSocketTools::send_frame(const char* buf, size_t len, size_t fragment, enu
     // last fragment
     nsend = this->__send_frame(p, remain, WebSocketFrameContinuation, true,
             [f_bc = std::move(bc)](WFChannelMsg<protocol::WebSocketFrame>*){f_bc();});
-    if (nsend < 0) return nsend;
+    if (nsend < 0) return p - buf;
 
     return len;
 }
 
-int WebSocketTools::__send_frame(const char *data, size_t size, enum ws_opcode opcode, bool fin,
+int WebSocketChannel::__send_frame(const char *data, size_t size, enum ws_opcode opcode, bool fin,
                                std::function<void(WFChannelMsg<protocol::WebSocketFrame>*)> cb, 
                                protocol::WebSocketFrame *in)  {
     int ret;
@@ -153,7 +153,7 @@ int WebSocketTools::__send_frame(const char *data, size_t size, enum ws_opcode o
     
     ret = msg->set_frame(data, size, opcode, fin);
     if (ret < 0)
-        return ret;
+        return -1;
     
     if (!this->channel->is_server()) 
         msg->set_masking_key(this->gen_masking_key());
@@ -165,17 +165,17 @@ int WebSocketTools::__send_frame(const char *data, size_t size, enum ws_opcode o
         series_of(dynamic_cast<WSFrame *>(in->session))->push_back(task);
     else
         task->start();
-    return 0;
+    return size;
 }
 
-int WebSocketTools::process_ping(protocol::WebSocketFrame *in = nullptr) {
+int WebSocketChannel::process_ping(protocol::WebSocketFrame *in = nullptr) {
     this->__send_frame(
             (char *)in->get_parser()->payload_data, in->get_parser()->payload_length,
             WebSocketFramePong, true, nullptr, in);
     return 0;
 }
 
-int WebSocketTools::process_close(protocol::WebSocketFrame *in) {
+int WebSocketChannel::process_close(protocol::WebSocketFrame *in) {
     if (this->handshake_status == WS_HANDSHAKE_CLOSING) {
         this->handshake_status = WS_HANDSHAKE_CLOSED;
         this->channel->shutdown();
@@ -252,23 +252,23 @@ int WebSocketChannelClient::send_header_req(WFChannel *) {
     return 0;
 }
 
-int WebSocketChannelClient::process_text(protocol::WebSocketFrame *in) {
-    std::cout << std::string((char *)in->get_parser()->payload_data,
-                             in->get_parser()->payload_length)
-              << std::endl;
-
-    return 0;
-}
-
-int WebSocketChannelServer::process_text(protocol::WebSocketFrame *in) {
-    std::cout << "-----data len:" << in->get_parser()->payload_length << std::endl;
-
-    return this->send_frame(
-        (char *)in->get_parser()->payload_data, 
-        in->get_parser()->payload_length,
-        in->get_parser()->payload_length,
-        WebSocketFrameText);
-}
+//int WebSocketChannelClient::process_text(protocol::WebSocketFrame *in) {
+//    std::cout << std::string((char *)in->get_parser()->payload_data,
+//                             in->get_parser()->payload_length)
+//              << std::endl;
+//
+//    return 0;
+//}
+//
+//int WebSocketChannelServer::process_text(protocol::WebSocketFrame *in) {
+//    std::cout << "-----data len:" << in->get_parser()->payload_length << std::endl;
+//
+//    return this->send_frame(
+//        (char *)in->get_parser()->payload_data, 
+//        in->get_parser()->payload_length,
+//        in->get_parser()->payload_length,
+//        WebSocketFrameText);
+//}
 
 int WebSocketChannelServer::process_header_req(protocol::HttpRequest *req) {
     // WSHearderRsp *task = new WSHearderRsp(this, nullptr);

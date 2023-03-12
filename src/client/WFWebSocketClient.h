@@ -49,6 +49,14 @@ public:
         return !this->client_->send_text(data, size);
     }
 
+    void set_process_binary_fn(std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> fn) {
+        this->client_->set_process_binary_fn(fn); 
+    }
+    
+    void set_process_text_fn(std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> fn) {
+        this->client_->set_process_text_fn(fn); 
+    }
+
 protected:
     void channel_done_callback(WFChannel::BaseTask *)
     {

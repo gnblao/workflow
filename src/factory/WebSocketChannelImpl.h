@@ -52,11 +52,19 @@ using WSFrame = WFChannelMsg<protocol::WebSocketFrame>;
 using websocket_process_t = std::function<void(WSFrame *)>;
 using websocket_callback_t = std::function<void(WSFrame *)>;
 
-class WebSocketTools {
+//class WebSocketChannel {
+class WebSocketChannel {
 public:
     void set_sec_protocol(const std::string &protocol) { this->sec_protocol = protocol; }
     void set_sec_version(const std::string &version) { this->sec_version = version; }
 
+    void set_process_binary_fn(std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> fn) {
+        this->process_binary_fn = fn; 
+    }
+    void set_process_text_fn(std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> fn) {
+        this->process_text_fn = fn; 
+    }
+    
     const std::string get_sec_protocol() const { return this->sec_protocol; }
     const std::string get_sec_version() const { return this->sec_version; }
 
@@ -70,7 +78,7 @@ public:
 
         return this->gen();
     }
-
+   
     // client
     virtual int send_header_req(WFChannel *) { return 0; }
     virtual int process_header_rsp(protocol::HttpResponse *message) { return 0; }
@@ -89,8 +97,16 @@ public:
     virtual int process_pong(protocol::WebSocketFrame *msg) { return 0; }
     virtual int process_close(protocol::WebSocketFrame *msg);
 
-    virtual int process_text(protocol::WebSocketFrame *msg) { return 0; }
-    virtual int process_binary(protocol::WebSocketFrame *msg) { return 0; }
+    virtual int process_text(protocol::WebSocketFrame *msg) { 
+        if (this->process_text_fn)
+            this->process_text_fn(this, msg);
+        return 0; 
+    }
+    virtual int process_binary(protocol::WebSocketFrame *msg) { 
+        if (this->process_binary_fn)
+            this->process_binary_fn(this, msg);
+        return 0; 
+    }
 
     // server
     virtual int process_header_req(protocol::HttpRequest *msg) { return 0; }
@@ -98,7 +114,7 @@ public:
     void create_ping_timer() {
         auto timer = WFTaskFactory::create_timer_task(
             this->ping_interval * 1000,
-            std::bind(&WebSocketTools::timer_callback, this, std::placeholders::_1));
+            std::bind(&WebSocketChannel::timer_callback, this, std::placeholders::_1));
 
         this->channel->incref();
         timer->start();
@@ -137,13 +153,14 @@ private:
     }
 
 public:
-    WebSocketTools(WFChannel *channel) {
+    WebSocketChannel(WFChannel *channel) {
         assert(channel);
         this->channel = channel;
         this->handshake_status = WS_HANDSHAKE_UNDEFINED;
     }
 
-    virtual ~WebSocketTools() {}
+    virtual ~WebSocketChannel() {}
+
 
 protected:
     struct timespec last_time;
@@ -155,6 +172,10 @@ protected:
     std::string sec_protocol{"chat"}; // Sec-WebSocket-Protocol
     std::string sec_version{"13"};    // Sec-WebSocket-Version
 
+    /*uplevel api*/
+    std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> process_text_fn;
+    std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> process_binary_fn;
+    
     enum {
         WS_HANDSHAKE_UNDEFINED = -1,
         WS_HANDSHAKE_OPEN,
@@ -167,13 +188,13 @@ private:
     WFChannel *channel;
 };
 
-class WebSocketChannelClient : public WFChannelClient, public WebSocketTools {
+class WebSocketChannelClient : public WFChannelClient, public WebSocketChannel {
 public:
     virtual int send_header_req(WFChannel *);
 
     virtual int process_header_rsp(protocol::HttpResponse *message) { return 0; }
-    virtual int process_text(protocol::WebSocketFrame *msg);
-    virtual int process_binary(protocol::WebSocketFrame *msg) { return 0; }
+    //virtual int process_text(protocol::WebSocketFrame *msg);
+    //virtual int process_binary(protocol::WebSocketFrame *msg) { return 0; }
 
     virtual int process_msg(MSG *message) {
         if (message->get_seq() > 0) {
@@ -239,7 +260,7 @@ protected:
 
 public:
     WebSocketChannelClient(task_callback_t &&cb = nullptr)
-        : WFChannelClient(0, std::move(cb)), WebSocketTools(this) {
+        : WFChannelClient(0, std::move(cb)), WebSocketChannel(this) {
         this->auto_gen_mkey = true;
 
         this->set_keep_alive(-1);
@@ -251,11 +272,11 @@ public:
     }
 };
 
-class WebSocketChannelServer : public WFChannelServer, public WebSocketTools {
+class WebSocketChannelServer : public WFChannelServer, public WebSocketChannel {
 public:
     virtual int process_header_req(protocol::HttpRequest *req);
-    virtual int process_text(protocol::WebSocketFrame *msg);
-    virtual int process_binary(protocol::WebSocketFrame *msg) { return 0; }
+    //virtual int process_text(protocol::WebSocketFrame *msg);
+    //virtual int process_binary(protocol::WebSocketFrame *msg) { return 0; }
 
     virtual int process_msg(MSG *message) {
         if (message->get_seq() > 0) {
@@ -309,7 +330,7 @@ public:
 
 public:
     WebSocketChannelServer(CommService *service, CommScheduler *scheduler)
-        : WFChannelServer(scheduler, service), WebSocketTools(this) {
+        : WFChannelServer(scheduler, service), WebSocketChannel(this) {
         this->auto_gen_mkey = auto_gen_mkey;
 
         this->set_keep_alive(-1);
