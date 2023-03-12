@@ -76,10 +76,14 @@ public:
     virtual int process_header_rsp(protocol::HttpResponse *message) { return 0; }
 
     virtual int send_ping();
-    virtual int send_pong();
-    virtual int send_close(int status_code, std::string str);
+    // virtual int send_pong(); /* It's not possible to actively send pong */
+    virtual int send_close(short status_code);
     virtual int send_text(const char *data, size_t size);
     virtual int send_binary(const char *data, size_t size);
+    virtual int send_frame(const char *data, size_t size, size_t frame_size, 
+            enum ws_opcode opcode, std::function<void()> cb = nullptr);
+    virtual int __send_frame(const char *data, size_t size, enum ws_opcode opcode, bool fin, 
+            std::function<void(WFChannelMsg<protocol::WebSocketFrame> *)> cb = nullptr, protocol::WebSocketFrame *in = nullptr);
 
     virtual int process_ping(protocol::WebSocketFrame *msg);
     virtual int process_pong(protocol::WebSocketFrame *msg) { return 0; }
@@ -100,7 +104,7 @@ public:
         timer->start();
     }
 
-    void update_time() { clock_gettime(CLOCK_MONOTONIC, &this->last_time); }
+    void update_lasttime() { clock_gettime(CLOCK_MONOTONIC, &this->last_time); }
 
     bool open() {
         if (this->handshake_status != WS_HANDSHAKE_OPEN)
@@ -199,7 +203,7 @@ public:
             this->handshake_status = WS_HANDSHAKE_OPEN;
         }
 
-        this->update_time();
+        this->update_lasttime();
         return 0;
     }
 
@@ -217,8 +221,6 @@ public:
         else {
             // session = new WSFrame(this, nullptr);
             session = new WSFrame(this);
-            if (this->is_server())
-                ((protocol::WebSocketFrame *)session->get_msg())->set_server();
         }
 
         return session;
@@ -284,7 +286,7 @@ public:
             this->handshake_status = WS_HANDSHAKE_OPEN;
         }
 
-        this->update_time();
+        this->update_lasttime();
         return 0;
     }
 
@@ -300,8 +302,6 @@ public:
         else {
             // session = new WSFrame(this, nullptr);
             session = new WSFrame(this);
-            if (this->is_server())
-                ((protocol::WebSocketFrame *)session->get_msg())->set_server();
         }
 
         return session;

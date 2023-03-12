@@ -89,8 +89,8 @@ protected:
     {
         MsgSession *session;
 
-        if (!this->is_open())
-            return nullptr;
+        //if (!this->is_open())
+        //    return nullptr;
 
         CommMessageIn *msg = this->get_message_in();
         if (msg)
@@ -101,16 +101,16 @@ protected:
         {
             return nullptr;
         }
+        session->set_state(WFC_MSG_STATE_IN);
+        session->set_seq(this->msg_seq++);
 
         msg = session->get_msg();
-        session->set_state(WFC_MSG_STATE_IN);
-
         if (!msg)
         {
             return nullptr;
         }
-
-        msg->seq     = this->msg_seq++;
+        
+        msg->seq     = session->get_seq();
         msg->session = session;
         return msg;
     }
@@ -119,8 +119,8 @@ protected:
     {
         CommMessageOut *msg;
 
-        // if (!this->is_open())
-        //     return nullptr;
+        if (!this->is_open())
+            return nullptr;
 
         std::lock_guard<std::mutex> lck(this->write_mutex);
         if (this->write_list.size())
@@ -154,14 +154,28 @@ public:
 
     virtual int shutdown()
     {
-        this->stop_flag.exchange(true);
+        if (this->stop_flag.exchange(true)) 
+            return -1;
+        
         this->get_scheduler()->channel_shutdown(this);
         return 0;
     }
 
     virtual bool is_open()
     {
-        return !this->stop_flag;
+        if  (this->stop_flag)
+            return false;;
+
+        int state = this->get_connection()->entry->state;
+        switch (state) {
+        case CONN_STATE_ESTABLISHED:
+        case CONN_STATE_CONNECTING:
+            return true;
+        default:
+            return false;
+        }
+
+        return false;
     };
 
     virtual void incref()
@@ -220,8 +234,8 @@ public:
         int          ret;
         CommSession *cur_session = in->session;
 
-        if (!this->is_open())
-            return -1;
+        //if (!this->is_open())
+        //    return -1;
 
         std::lock_guard<std::mutex> lck(this->in_mutex);
         assert(this->in_list_seq <= seq);

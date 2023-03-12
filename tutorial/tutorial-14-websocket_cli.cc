@@ -36,13 +36,11 @@ using namespace protocol;
 
 void process(WSFrame *task)
 {
-	const char *data;
-	size_t size;
 
 	if (task->get_msg()->get_opcode() == WebSocketFrameText)
 	{
-		task->get_msg()->get_data(&data, &size);
-		fprintf(stderr, "get text message: [%.*s]\n", (int)size, data);
+		auto parser = task->get_msg()->get_parser();
+		fprintf(stderr, "get text message: [%.*s]\n", (int)parser->payload_length, (char *)parser->payload_data);
 	}
 	else
 	{

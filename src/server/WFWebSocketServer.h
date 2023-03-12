@@ -49,7 +49,7 @@ public:
         WFServer<MSG, MSG>(&WS_SERVER_PARAMS_DEFAULT, nullptr)
     {
         this->ping_interval = 5 * 1000;
-        this->auto_gen_mkey = false;
+        this->auto_gen_mkey = true;
 //        this->sec_version = "13";
 //        this->sec_protocol = "chat";
     }

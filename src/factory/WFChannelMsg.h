@@ -48,8 +48,8 @@ public:
     }
 
     virtual ~WFChannelMsgBase() {
-        delete this->msg;
         this->channel->decref();
+        delete this->msg;
     }
 
     WFChannel *get_channel() const { return this->channel; }
@@ -80,12 +80,12 @@ protected:
     WFChannel *channel;
 
 private:
-    virtual CommMessageOut *message_out() {
+    virtual CommMessageOut *message_out() final {
         errno = ENOSYS;
         return NULL;
     }
 
-    virtual CommMessageIn *message_in() {
+    virtual CommMessageIn *message_in()  final {
         errno = ENOSYS;
         return NULL;
     }
