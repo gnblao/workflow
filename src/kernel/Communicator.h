@@ -21,6 +21,7 @@
 
 #include "list.h"
 #include "poller.h"
+#include "mpoller.h"
 #include <errno.h>
 #include <list>  // c++
 #include <mutex> // c++
@@ -130,7 +131,6 @@ public:
 #define CS_STATE_ERROR 1
 #define CS_STATE_STOPPED 2
 #define CS_STATE_TOREPLY 3  /* for service session only. */
-#define CS_STATE_SHUTDOWN 4 /* for channel only */
 
 class CommSession {
 private:
@@ -142,12 +142,14 @@ private:
     virtual int first_timeout() { return 0; } /* for client session only. */
     virtual void handle(int state, int error) = 0;
 
+public:
+    long long get_seq() const { return this->seq; }
+    void set_seq(long long seq){ this->seq = seq; }
 protected:
     CommTarget *get_target() const { return this->target; }
     CommConnection *get_connection() const { return this->conn; }
     CommMessageOut *get_message_out() const { return this->out; }
     CommMessageIn *get_message_in() const { return this->in; }
-    long long get_seq() const { return this->seq; }
 
     virtual bool is_channel() { return false; } /* for client channel only*/
     CommMessageOut **get_out() { return &this->out; }
@@ -251,6 +253,35 @@ public:
     virtual ~SleepSession() {}
     friend class Communicator;
 };
+
+struct CommConnEntry {
+    struct list_head list;
+    CommConnection *conn;
+    long long seq;
+    int sockfd;
+    short is_channel;
+#define CONN_STATE_CONNECTING 0
+#define CONN_STATE_CONNECTED 1
+#define CONN_STATE_RECEIVING 2
+#define CONN_STATE_SUCCESS 3
+#define CONN_STATE_IDLE 4
+#define CONN_STATE_KEEPALIVE 5
+#define CONN_STATE_CLOSING 6
+#define CONN_STATE_ERROR 7
+#define CONN_STATE_ESTABLISHED 8 /*for channl*/
+    short state;
+    int error;
+    int ref;
+    struct iovec *write_iov;
+    SSL *ssl;
+    CommSession *session;
+    CommTarget *target;
+    CommService *service;
+    mpoller_t *mpoller;
+    /* Connection entry's mutex is for client session only. */
+    pthread_mutex_t mutex;
+};
+
 
 #ifdef __linux__
 #include "IOService_linux.h"

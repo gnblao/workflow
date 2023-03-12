@@ -41,33 +41,33 @@
 #include <time.h>
 #include <unistd.h>
 
-struct CommConnEntry {
-    struct list_head list;
-    CommConnection *conn;
-    long long seq;
-    int sockfd;
-    short is_channel;
-#define CONN_STATE_CONNECTING 0
-#define CONN_STATE_CONNECTED 1
-#define CONN_STATE_RECEIVING 2
-#define CONN_STATE_SUCCESS 3
-#define CONN_STATE_IDLE 4
-#define CONN_STATE_KEEPALIVE 5
-#define CONN_STATE_CLOSING 6
-#define CONN_STATE_ERROR 7
-#define CONN_STATE_ESTABLISHED 8 /*for channl*/
-    short state;
-    int error;
-    int ref;
-    struct iovec *write_iov;
-    SSL *ssl;
-    CommSession *session;
-    CommTarget *target;
-    CommService *service;
-    mpoller_t *mpoller;
-    /* Connection entry's mutex is for client session only. */
-    pthread_mutex_t mutex;
-};
+//struct CommConnEntry {
+//    struct list_head list;
+//    CommConnection *conn;
+//    long long seq;
+//    int sockfd;
+//    short is_channel;
+//#define CONN_STATE_CONNECTING 0
+//#define CONN_STATE_CONNECTED 1
+//#define CONN_STATE_RECEIVING 2
+//#define CONN_STATE_SUCCESS 3
+//#define CONN_STATE_IDLE 4
+//#define CONN_STATE_KEEPALIVE 5
+//#define CONN_STATE_CLOSING 6
+//#define CONN_STATE_ERROR 7
+//#define CONN_STATE_ESTABLISHED 8 /*for channl*/
+//    short state;
+//    int error;
+//    int ref;
+//    struct iovec *write_iov;
+//    SSL *ssl;
+//    CommSession *session;
+//    CommTarget *target;
+//    CommService *service;
+//    mpoller_t *mpoller;
+//    /* Connection entry's mutex is for client session only. */
+//    pthread_mutex_t mutex;
+//};
 
 static inline int __set_fd_nonblock(int fd) {
     int flags = fcntl(fd, F_GETFL);
@@ -284,8 +284,7 @@ int CommService::drain(int max) {
 
         /* Cannot change the sequence of next two lines. */
         mpoller_del(entry->sockfd, entry->mpoller);
-        if (!entry->is_channel)
-            entry->state = CONN_STATE_CLOSING;
+        entry->state = CONN_STATE_CLOSING;
     }
 
     pthread_mutex_unlock(&this->mutex);
@@ -428,6 +427,7 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt, struct Comm
     CommSession *session = entry->session;
     CommService *service;
     int timeout;
+    int ret;
 
     cnt = __send_vectors(vectors, cnt, entry);
     if (cnt != 0)
@@ -446,22 +446,22 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt, struct Comm
         timeout = session->keep_alive_timeout();
         switch (timeout) {
         default:
-            mpoller_set_timeout(entry->sockfd, timeout, this->mpoller);
+            ret = mpoller_set_timeout(entry->sockfd, timeout, this->mpoller);
+            
             pthread_mutex_lock(&service->mutex);
-            if (service->listen_fd >= 0) {
+            if (ret == 0 && service->listen_fd >= 0) {
                 if (entry->state != CONN_STATE_ESTABLISHED) {
                     entry->state = CONN_STATE_KEEPALIVE;
                     list_add_tail(&entry->list, &service->alive_list);
                 }
                 entry = NULL;
             }
-
             pthread_mutex_unlock(&service->mutex);
-            if (entry) {
-            case 0:
+            
+            if (ret == 0 && entry) {
+        case 0:
                 mpoller_del(entry->sockfd, this->mpoller);
-                if (!entry->is_channel)
-                    entry->state = CONN_STATE_CLOSING;
+                //entry->state = CONN_STATE_CLOSING;
             }
         }
     } else {
@@ -564,37 +564,48 @@ void Communicator::handle_incoming_request(struct poller_result *res) {
     case PR_ST_SUCCESS:
         session = entry->session;
         state = CS_STATE_TOREPLY;
+        
         pthread_mutex_lock(&target->mutex);
-        if (entry->state == CONN_STATE_ESTABLISHED) {
+        
+        switch (entry->state) {
+        case CONN_STATE_ESTABLISHED:
+            __sync_add_and_fetch(&entry->ref, 1);
+            
             session = ((CommMessageIn *)res->data.message)->session;
+            if (session->seq == 0) {
+                pthread_mutex_lock(&entry->service->mutex);
+                list_add_tail(&entry->list, &entry->service->alive_list);
+                pthread_mutex_unlock(&entry->service->mutex);
+            }
+            
+            break;
+        case CONN_STATE_SUCCESS:
             __sync_add_and_fetch(&entry->ref, 1);
-        }
-
-        if (entry->state == CONN_STATE_SUCCESS) {
-            __sync_add_and_fetch(&entry->ref, 1);
+            
             entry->state = CONN_STATE_IDLE;
             list_add(&entry->list, &target->idle_list);
+            break;
         }
-
+        
         pthread_mutex_unlock(&target->mutex);
         break;
 
     case PR_ST_FINISHED:
         res->error = ECONNRESET;
-        if (1)
-        case PR_ST_ERROR:
+        if (1) {
+    case PR_ST_ERROR:
             state = CS_STATE_ERROR;
+        }
         else
-        case PR_ST_DELETED:
-        case PR_ST_STOPPED:
+    case PR_ST_DELETED:
+    case PR_ST_STOPPED:
             state = CS_STATE_STOPPED;
 
         pthread_mutex_lock(&target->mutex);
         switch (entry->state) {
         case CONN_STATE_KEEPALIVE:
             pthread_mutex_lock(&entry->service->mutex);
-            if (entry->state == CONN_STATE_KEEPALIVE)
-                list_del(&entry->list);
+            list_del(&entry->list);
             pthread_mutex_unlock(&entry->service->mutex);
             break;
 
@@ -604,13 +615,20 @@ void Communicator::handle_incoming_request(struct poller_result *res) {
 
         case CONN_STATE_ERROR:
             res->error = entry->error;
-        case CONN_STATE_ESTABLISHED:
         case CONN_STATE_RECEIVING:
+            session = entry->session;
+            break;
+        case CONN_STATE_ESTABLISHED:
+            pthread_mutex_lock(&entry->service->mutex);
+            list_del(&entry->list);
+            pthread_mutex_unlock(&entry->service->mutex);
+            entry->state = res->state == PR_ST_ERROR ? CONN_STATE_ERROR: CONN_STATE_CLOSING;
             session = entry->session;
             break;
         case CONN_STATE_SUCCESS:
             /* This may happen only if handler_threads > 1. */
-            entry->state = CONN_STATE_CLOSING;
+            //entry->state = CONN_STATE_CLOSING;
+            entry->state = res->state == PR_ST_ERROR ? CONN_STATE_ERROR: CONN_STATE_CLOSING;
             entry = NULL;
             break;
         }
@@ -648,9 +666,9 @@ void Communicator::handle_incoming_reply(struct poller_result *res) {
         }
 
         if (entry->state == CONN_STATE_SUCCESS) {
-            __sync_add_and_fetch(&entry->ref, 1);
             if (session->timeout != 0) /* This is keep-alive timeout. */
             {
+                __sync_add_and_fetch(&entry->ref, 1);
                 entry->state = CONN_STATE_IDLE;
                 list_add(&entry->list, &target->idle_list);
             } else
@@ -663,11 +681,11 @@ void Communicator::handle_incoming_reply(struct poller_result *res) {
     case PR_ST_FINISHED:
         res->error = ECONNRESET;
         if (1)
-        case PR_ST_ERROR:
+    case PR_ST_ERROR:
             state = CS_STATE_ERROR;
         else
-        case PR_ST_DELETED:
-        case PR_ST_STOPPED:
+    case PR_ST_DELETED:
+    case PR_ST_STOPPED:
             state = CS_STATE_STOPPED;
 
         mutex = &entry->mutex;
@@ -681,14 +699,17 @@ void Communicator::handle_incoming_reply(struct poller_result *res) {
         case CONN_STATE_ERROR:
             res->error = entry->error;
             state = CS_STATE_ERROR;
-        case CONN_STATE_ESTABLISHED: /*for channel*/
         case CONN_STATE_RECEIVING:
+            session = entry->session;
+            break;
+        case CONN_STATE_ESTABLISHED: /*for channel*/
+            entry->state = (res->state == PR_ST_ERROR)? CONN_STATE_ERROR : CONN_STATE_CLOSING;
             session = entry->session;
             break;
 
         case CONN_STATE_SUCCESS:
             /* This may happen only if handler_threads > 1. */
-            entry->state = CONN_STATE_CLOSING;
+            entry->state = (res->state == PR_ST_ERROR)? CONN_STATE_ERROR : CONN_STATE_CLOSING;
             entry = NULL;
             break;
         }
@@ -732,57 +753,57 @@ void Communicator::handle_reply_result(struct poller_result *res) {
 
     switch (res->state) {
     case PR_ST_FINISHED:
-        timeout = session->keep_alive_timeout();
-        if (timeout != 0) {
-            pthread_mutex_lock(&target->mutex);
-            if (entry->is_channel > 0) {
-                delete session->out;
-                session->out = nullptr;
-                /*again write ?*/
-                ret = this->channel_send_callback(session);
-                if (ret == 0)
-                    entry->is_channel = 1;
-            }
-
-            __sync_add_and_fetch(&entry->ref, 1);
-
-            res->data.operation = PD_OP_READ;
-            res->data.create_message = Communicator::create_request;
-            res->data.message = NULL;
-            if (ret == 0 && mpoller_add(&res->data, timeout, this->mpoller) >= 0) {
-                pthread_mutex_lock(&service->mutex);
-                if (!this->stop_flag && service->listen_fd >= 0) {
-                    if (entry->state != CONN_STATE_ESTABLISHED) {
-                        entry->state = CONN_STATE_KEEPALIVE;
-                        list_add_tail(&entry->list, &service->alive_list);
-                    } else {
-                        ret = 1;
-                        __sync_sub_and_fetch(&entry->ref, 1);
-                    }
-                } else {
-                    mpoller_del(res->data.fd, this->mpoller);
-                    if (!entry->is_channel)
-                        entry->state = CONN_STATE_CLOSING;
-                }
-
-                pthread_mutex_unlock(&service->mutex);
-            } else
-                __sync_sub_and_fetch(&entry->ref, 1);
-
-            pthread_mutex_unlock(&target->mutex);
+        pthread_mutex_lock(&target->mutex);
+        if (entry->is_channel > 0) {
+            delete session->out;
+            session->out = nullptr;
+            /*again write ?*/
+            ret = this->channel_send_callback(session);
+            if (ret == 0)
+                entry->is_channel = 1;
         }
+        pthread_mutex_unlock(&target->mutex);
 
-        if (ret == 1)
+        if (ret == 1) 
             break;
 
-        if (ret == 0)
-            state = CS_STATE_SUCCESS;
-        else if (ret == -1)
-        case PR_ST_ERROR:
+        if (ret == 0) {
+            timeout = session->keep_alive_timeout();
+            if (timeout != 0) {
+                pthread_mutex_lock(&target->mutex);
+                __sync_add_and_fetch(&entry->ref, 1);
+
+                res->data.operation = PD_OP_READ;
+                res->data.create_message = Communicator::create_request;
+                res->data.message = NULL;
+                if (mpoller_add(&res->data, timeout, this->mpoller) >= 0) {
+                    pthread_mutex_lock(&service->mutex);
+                    if (!this->stop_flag && service->listen_fd >= 0) {
+                        if (entry->state != CONN_STATE_ESTABLISHED) {
+                            entry->state = CONN_STATE_KEEPALIVE;
+                            list_add_tail(&entry->list, &service->alive_list);
+                        }
+                       // else {
+                       //     __sync_sub_and_fetch(&entry->ref, 1);
+                       // }
+                    } else {
+                        mpoller_del(res->data.fd, this->mpoller);
+                    }
+
+                    pthread_mutex_unlock(&service->mutex);
+                } else
+                    __sync_sub_and_fetch(&entry->ref, 1);
+
+                pthread_mutex_unlock(&target->mutex);
+            }
+
+            state = CS_STATE_SUCCESS; 
+        } else if (ret == -1)
+    case PR_ST_ERROR:
             state = CS_STATE_ERROR;
         else
-        case PR_ST_DELETED: /* DELETED seems not possible. */
-        case PR_ST_STOPPED:
+    case PR_ST_DELETED: /* DELETED seems not possible. */
+    case PR_ST_STOPPED:
             state = CS_STATE_STOPPED;
 
         session->handle(state, res->error);
@@ -841,11 +862,11 @@ void Communicator::handle_request_result(struct poller_result *res) {
 
         res->error = errno;
         if (1)
-        case PR_ST_ERROR:
+    case PR_ST_ERROR:
             state = CS_STATE_ERROR;
         else
-        case PR_ST_DELETED:
-        case PR_ST_STOPPED:
+    case PR_ST_DELETED:
+    case PR_ST_STOPPED:
             state = CS_STATE_STOPPED;
 
         entry->target->release(0);
@@ -1003,11 +1024,11 @@ void Communicator::handle_connect_result(struct poller_result *res) {
 
         res->error = errno;
         if (1)
-        case PR_ST_ERROR:
+    case PR_ST_ERROR:
             state = CS_STATE_ERROR;
         else
-        case PR_ST_DELETED:
-        case PR_ST_STOPPED:
+    case PR_ST_DELETED:
+    case PR_ST_STOPPED:
             state = CS_STATE_STOPPED;
 
         target->release(0);
@@ -1252,91 +1273,6 @@ poller_message_t *Communicator::create_request(void *context) {
 
     return session->in;
 }
-/*
-<<<<<<< HEAD
-int Communicator::create_service_session(struct CommConnEntry *entry)
-{
-    CommService *service = entry->service;
-    CommTarget  *target  = entry->target;
-    CommSession *session;
-    int          timeout;
-
-    pthread_mutex_lock(&service->mutex);
-    if (entry->state == CONN_STATE_KEEPALIVE)
-        list_del(&entry->list);
-    else if (entry->state != CONN_STATE_CONNECTED)
-        entry = NULL;
-
-    pthread_mutex_unlock(&service->mutex);
-    if (!entry)
-    {
-        errno = ENOENT;
-        return -1;
-    }
-
-    session = service->new_session(entry->seq, entry->conn);
-    if (session)
-    {
-        session->passive = 1;
-        entry->session   = session;
-        session->target  = target;
-        session->conn    = entry->conn;
-        session->seq     = entry->seq++;
-        session->out     = NULL;
-        session->in      = NULL;
-
-        timeout = Communicator::first_timeout_recv(session);
-        mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
-        entry->state = CONN_STATE_RECEIVING;
-
-        ((CommServiceTarget *)target)->incref();
-        return 0;
-    }
-
-    return -1;
-}
-
-
-poller_message_t *Communicator::create_message(void *context)
-{
-    struct CommConnEntry *entry = (struct CommConnEntry *)context;
-    CommSession          *session;
-
-    if (entry->state == CONN_STATE_IDLE)
-    {
-        pthread_mutex_t *mutex;
-
-        if (entry->service)
-            mutex = &entry->target->mutex;
-        else
-            mutex = &entry->mutex;
-
-        pthread_mutex_lock(mutex);
-        pthread_mutex_unlock(mutex);
-    }
-
-    if (entry->state == CONN_STATE_CONNECTED || entry->state == CONN_STATE_KEEPALIVE)
-    {
-        if (Communicator::create_service_session(entry) < 0)
-            return NULL;
-    }
-    else if (!(entry->state == CONN_STATE_RECEIVING || entry->state == CONN_STATE_ESTABLISHED))
-    {
-        errno = EBADMSG;
-        return NULL;
-    }
-
-    session     = entry->session;
-    session->in = session->message_in();
-    if (session->in)
-    {
-        session->in->poller_message_t::append = Communicator::append;
-        session->in->entry                    = entry;
-    }
-
-    return session->in;
-}
-*/
 
 poller_message_t *Communicator::create_reply(void *context) {
     struct CommConnEntry *entry = (struct CommConnEntry *)context;
@@ -1348,7 +1284,6 @@ poller_message_t *Communicator::create_reply(void *context) {
         pthread_mutex_unlock(&entry->mutex);
     }
 
-    // if (entry->state != CONN_STATE_RECEIVING)
     if (!(entry->state == CONN_STATE_RECEIVING || entry->state == CONN_STATE_ESTABLISHED)) {
         errno = EBADMSG;
         return NULL;
@@ -1778,6 +1713,7 @@ int Communicator::channel_send_one(CommSession *session) {
         if (ret < 0) {
             entry->error = errno;
             mpoller_del(entry->sockfd, this->mpoller);
+            //entry->state = CONN_STATE_ERROR;
         } else if (ret == 0) {
             entry->is_channel = 1;
         }
@@ -1791,7 +1727,7 @@ int Communicator::channel_send_one(CommSession *session) {
 
 int Communicator::channel_send_callback(CommSession *session) {
     /* note: please don't call
-     * only use in write result
+     * only use in handle_write_result
      * */
 
     int ret = 0;
@@ -1839,6 +1775,7 @@ void Communicator::channel_shutdown(CommSession *channel) {
 
     entry->error = 0;
     mpoller_del(entry->sockfd, this->mpoller);
+    //entry->state = CONN_STATE_CLOSING;
     pthread_mutex_unlock(mutex);
 
     errno = errno_bak;
