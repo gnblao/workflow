@@ -192,7 +192,7 @@ int websocket_parser_parse(websocket_parser_t *parser)
 
 	unsigned char *p = (unsigned char *)parser->payload_data;
 
-	if (parser->opcode == WebSocketFrameConnectionClose)
+	if (parser->opcode == WebSocketFrameConnectionClose && parser->payload_length > 0)
 	{	
 		uint16_t *ptr = (uint16_t *)p;
 		parser->status_code = ntohs(*ptr);
