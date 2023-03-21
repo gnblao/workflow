@@ -163,11 +163,15 @@ public:
 
     virtual bool is_open()
     {
+        CommConnection *conn;
         if  (this->stop_flag)
             return false;;
-
-        int state = this->get_connection()->entry->state;
-        switch (state) {
+        
+        conn = this->get_connection();
+        if (!conn || !conn->entry)
+            return false;
+        
+        switch (conn->entry->state) {
         case CONN_STATE_ESTABLISHED:
         case CONN_STATE_CONNECTING:
             return true;
@@ -360,6 +364,8 @@ protected:
     virtual void delete_this(void *t)
     {
         this->stop_flag = true;
+        CommConnection **conn = this->get_conn();
+        *conn = nullptr;
 
         CommMessageIn *in = this->get_message_in();
         if (in)
@@ -371,8 +377,13 @@ protected:
             }
             // delete in;
         }
-
+        
         this->decref();
+    }
+
+    virtual WFConnection *get_connection() const
+    {
+        return (WFConnection *)this->CommSession::get_connection();
     }
 
     virtual ~WFChannelImpl()

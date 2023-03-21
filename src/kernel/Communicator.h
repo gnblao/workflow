@@ -151,12 +151,16 @@ protected:
     CommMessageOut *get_message_out() const { return this->out; }
     CommMessageIn *get_message_in() const { return this->in; }
 
-    virtual bool is_channel() { return false; } /* for client channel only*/
+    /* for client channel only*/
+    virtual bool is_channel() { return false; } 
     CommMessageOut **get_out() { return &this->out; }
     CommMessageIn **get_in() { return &this->in; }
+    CommConnection **get_conn() { return &this->conn; }
+
+protected:
+    CommTarget *target;
 
 private:
-    CommTarget *target;
     CommConnection *conn;
     CommMessageOut *out;
     CommMessageIn *in;

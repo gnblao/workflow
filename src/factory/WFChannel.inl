@@ -70,11 +70,6 @@ protected:
         return series->pop();
     }
 
-    virtual WFConnection *get_connection() const
-    {
-        return (WFConnection *)this->CommSession::get_connection();
-    }
-
 public:
     virtual bool is_server()
     {

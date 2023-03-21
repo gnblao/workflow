@@ -56,7 +56,7 @@ protected:
 	int error;
 
 protected:
-	CommTarget *target;
+	//CommTarget *target;
 #define TOR_NOT_TIMEOUT			0
 #define TOR_WAIT_TIMEOUT		1
 #define TOR_CONNECT_TIMEOUT		2

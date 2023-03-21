@@ -1674,6 +1674,7 @@ int Communicator::reply(CommSession *session) {
 
 int Communicator::channel_send_one(CommSession *session) {
     struct CommConnEntry *entry;
+    CommConnection *conn;
     CommTarget *target = session->target;
     int ret = -1;
     pthread_mutex_t *mutex;
@@ -1681,8 +1682,12 @@ int Communicator::channel_send_one(CommSession *session) {
     if (!session->is_channel()) {
         return -1;
     }
-
-    entry = session->get_connection()->entry;
+    
+    conn = session->get_connection();
+    if (!conn)
+        return -1;
+    
+    entry = conn->entry;
     if (!entry)
         return -1;
 
@@ -1732,8 +1737,13 @@ int Communicator::channel_send_callback(CommSession *session) {
 
     int ret = 0;
     struct CommConnEntry *entry;
+    CommConnection *conn;
 
-    entry = session->get_connection()->entry;
+    conn = session->get_connection();
+    if (!conn)
+        return -1;
+    
+    entry = conn->entry;
     if (!entry)
         return -1;
 
@@ -1746,16 +1756,21 @@ int Communicator::channel_send_callback(CommSession *session) {
     return ret;
 }
 
-void Communicator::channel_shutdown(CommSession *channel) {
+void Communicator::channel_shutdown(CommSession *session) {
     struct CommConnEntry *entry;
-    CommTarget *target = channel->target;
+    CommTarget *target = session->target;
+    CommConnection *conn;
     pthread_mutex_t *mutex;
 
-    if (!channel->is_channel()) {
+    if (!session->is_channel()) {
         return;
     }
 
-    entry = channel->get_connection()->entry;
+    conn = session->get_connection();
+    if (!conn)
+        return;
+
+    entry = conn->entry;
     if (!entry)
         return;
 
