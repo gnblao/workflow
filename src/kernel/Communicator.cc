@@ -446,10 +446,9 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt, struct Comm
         timeout = session->keep_alive_timeout();
         switch (timeout) {
         default:
-            ret = mpoller_set_timeout(entry->sockfd, timeout, this->mpoller);
-            
+            mpoller_set_timeout(entry->sockfd, timeout, this->mpoller);
             pthread_mutex_lock(&service->mutex);
-            if (ret == 0 && service->listen_fd >= 0) {
+            if (service->listen_fd >= 0) {
                 if (entry->state != CONN_STATE_ESTABLISHED) {
                     entry->state = CONN_STATE_KEEPALIVE;
                     list_add_tail(&entry->list, &service->alive_list);
@@ -458,10 +457,11 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt, struct Comm
             }
             pthread_mutex_unlock(&service->mutex);
             
-            if (ret == 0 && entry) {
+            if (entry) {
         case 0:
                 mpoller_del(entry->sockfd, this->mpoller);
-                //entry->state = CONN_STATE_CLOSING;
+                if (entry->state != CONN_STATE_ESTABLISHED)
+                    entry->state = CONN_STATE_CLOSING;
             }
         }
     } else {
@@ -509,9 +509,9 @@ int Communicator::send_message_async(struct iovec vectors[], int cnt,
     data.write_iov = entry->write_iov;
     data.iovcnt = cnt;
     timeout = Communicator::first_timeout_send(entry->session);
-    if (entry->state == CONN_STATE_IDLE || entry->state == CONN_STATE_ESTABLISHED) {
+    if (entry->state == CONN_STATE_IDLE || (entry->state == CONN_STATE_ESTABLISHED && entry->is_channel == 2)) {
         ret = mpoller_mod(&data, timeout, this->mpoller);
-        if (ret < 0 && errno == ENOENT)
+        if (ret < 0 && errno == ENOENT && entry->state == CONN_STATE_IDLE)
             entry->state = CONN_STATE_RECEIVING;
     } else {
         ret = mpoller_add(&data, timeout, this->mpoller);
@@ -767,38 +767,39 @@ void Communicator::handle_reply_result(struct poller_result *res) {
         if (ret == 1) 
             break;
 
-        if (ret == 0) {
-            timeout = session->keep_alive_timeout();
-            if (timeout != 0) {
-                pthread_mutex_lock(&target->mutex);
-                __sync_add_and_fetch(&entry->ref, 1);
+        timeout = session->keep_alive_timeout();
+        if (ret == 0 && timeout != 0) {
+            state = CS_STATE_SUCCESS; 
+            pthread_mutex_lock(&target->mutex);
+            __sync_add_and_fetch(&entry->ref, 1);
 
-                res->data.operation = PD_OP_READ;
-                res->data.create_message = Communicator::create_request;
-                res->data.message = NULL;
-                if (mpoller_add(&res->data, timeout, this->mpoller) >= 0) {
-                    pthread_mutex_lock(&service->mutex);
-                    if (!this->stop_flag && service->listen_fd >= 0) {
-                        if (entry->state == CONN_STATE_ESTABLISHED) {
-                            __sync_sub_and_fetch(&entry->ref, 1);
-                        } else {
-                            entry->state = CONN_STATE_KEEPALIVE;
-                            list_add_tail(&entry->list, &service->alive_list);
-                        }
+            res->data.operation = PD_OP_READ;
+            res->data.create_message = Communicator::create_request;
+            res->data.message = NULL;
+            if (mpoller_add(&res->data, timeout, this->mpoller) >= 0) {
+                pthread_mutex_lock(&service->mutex);
+                if (!this->stop_flag && service->listen_fd >= 0) {
+                    if (entry->state == CONN_STATE_ESTABLISHED) {
+                        __sync_sub_and_fetch(&entry->ref, 1);
                     } else {
-                        mpoller_del(res->data.fd, this->mpoller);
+                        entry->state = CONN_STATE_KEEPALIVE;
+                        list_add_tail(&entry->list, &service->alive_list);
                     }
+                } else {
+                    mpoller_del(res->data.fd, this->mpoller);
+                }
 
-                    pthread_mutex_unlock(&service->mutex);
-                } else
-                    __sync_sub_and_fetch(&entry->ref, 1);
-
-                pthread_mutex_unlock(&target->mutex);
+                pthread_mutex_unlock(&service->mutex);
+            } else {
+                __sync_sub_and_fetch(&entry->ref, 1);
             }
-            
+
+            pthread_mutex_unlock(&target->mutex);
+
             if (entry->state == CONN_STATE_ESTABLISHED)
                 break;
 
+        } else if (ret == 0 && timeout == 0) {
             state = CS_STATE_SUCCESS; 
         } else if (ret == -1)
     case PR_ST_ERROR:
@@ -1750,6 +1751,7 @@ int Communicator::channel_send_callback(CommSession *session) {
     if (!entry)
         return -1;
 
+    entry->is_channel = 3;
     while (session->out = session->message_out()) {
         ret = this->send_message(entry);
         if (ret != 0)
