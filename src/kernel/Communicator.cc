@@ -779,13 +779,12 @@ void Communicator::handle_reply_result(struct poller_result *res) {
                 if (mpoller_add(&res->data, timeout, this->mpoller) >= 0) {
                     pthread_mutex_lock(&service->mutex);
                     if (!this->stop_flag && service->listen_fd >= 0) {
-                        if (entry->state != CONN_STATE_ESTABLISHED) {
+                        if (entry->state == CONN_STATE_ESTABLISHED) {
+                            __sync_sub_and_fetch(&entry->ref, 1);
+                        } else {
                             entry->state = CONN_STATE_KEEPALIVE;
                             list_add_tail(&entry->list, &service->alive_list);
                         }
-                       // else {
-                       //     __sync_sub_and_fetch(&entry->ref, 1);
-                       // }
                     } else {
                         mpoller_del(res->data.fd, this->mpoller);
                     }
@@ -796,6 +795,9 @@ void Communicator::handle_reply_result(struct poller_result *res) {
 
                 pthread_mutex_unlock(&target->mutex);
             }
+            
+            if (entry->state == CONN_STATE_ESTABLISHED)
+                break;
 
             state = CS_STATE_SUCCESS; 
         } else if (ret == -1)
@@ -1010,7 +1012,8 @@ void Communicator::handle_connect_result(struct poller_result *res) {
                     session->begin_time.tv_nsec = -1;
                 }
             } else if (ret > 0)
-                break;
+                timeout = Communicator::first_timeout_send(session);
+                //break;
         } else
             ret = -1;
 
