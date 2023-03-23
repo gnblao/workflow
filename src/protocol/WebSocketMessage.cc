@@ -123,7 +123,7 @@ int WebSocketFrame::encode(struct iovec vectors[], int max)
 
 	if (this->parser->payload_length)
 	{
-		//websocket_parser_mask_data(this->parser);
+		websocket_parser_mask_data(this->parser);
 		vectors[cnt].iov_base = this->parser->payload_data;
 		vectors[cnt].iov_len = this->parser->payload_length;
 		cnt++;

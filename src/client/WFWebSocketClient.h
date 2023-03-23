@@ -49,6 +49,14 @@ public:
         return !this->client_->send_text(data, size);
     }
 
+    void set_auto_gen_mkey(bool b) {
+        this->client_->set_auto_gen_mkey(b);
+    }
+    
+    void set_ping_interval(int millisecond) {
+        this->client_->set_ping_interval(millisecond);
+    }
+    
     void set_process_binary_fn(std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> fn) {
         this->client_->set_process_binary_fn(fn); 
     }

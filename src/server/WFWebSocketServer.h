@@ -51,13 +51,17 @@ public:
     WFWebSocketServer() : 
         WFServer<MSG, MSG>(&WS_SERVER_PARAMS_DEFAULT, nullptr)
     {
-        this->ping_interval = 5 * 1000;
+        this->ping_interval = ping_interval;
         this->auto_gen_mkey = true;
 //        this->sec_version = "13";
 //        this->sec_protocol = "chat";
     }
 
-public:
+public: 
+    void set_auto_gen_mkey(bool b) {
+        this->auto_gen_mkey = b;
+    }
+ 
     void set_ping_interval(int millisecond) {this->ping_interval = millisecond;}
 	void set_sec_protocol(const std::string &protocol) { this->sec_protocol = protocol;}
 	void set_sec_version(const std::string &version) { this->sec_version = version;}

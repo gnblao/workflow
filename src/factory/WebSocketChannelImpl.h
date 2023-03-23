@@ -72,7 +72,6 @@ public:
     void set_auto_gen_mkey(bool b) { this->auto_gen_mkey = b; }
 
     uint32_t gen_masking_key() {
-        return 0;
         if (this->auto_gen_mkey == false)
             return 0;
 
@@ -112,12 +111,13 @@ public:
     virtual int process_header_req(protocol::HttpRequest *msg) { return 0; }
 
     void create_ping_timer() {
-        auto timer = WFTaskFactory::create_timer_task(
+        this->ping_timer = WFTaskFactory::create_timer_task(
             this->ping_interval * 1000,
             std::bind(&WebSocketChannel::timer_callback, this, std::placeholders::_1));
-
+        
+        this->channel->set_termination_cb([this](){this->ping_timer->unsleep();});
         this->channel->incref();
-        timer->start();
+        this->ping_timer->start();
     }
 
     void update_lasttime() { clock_gettime(CLOCK_MONOTONIC, &this->last_time); }
@@ -131,12 +131,15 @@ public:
 
 private:
     void timer_callback(WFTimerTask *timer) {
-        if (this->channel->is_open() && this->ping_interval < update_interval())
-            this->send_ping();
+        this->channel->set_termination_cb(nullptr);
+        if (timer->get_state() == SS_STATE_COMPLETE) {
+            if (this->channel->is_open() && this->ping_interval < update_interval())
+                this->send_ping();
 
-        if (this->ping_interval > 0 && this->channel->is_open())
-            this->create_ping_timer();
-
+            if (this->ping_interval > 0 && this->channel->is_open())
+                this->create_ping_timer();
+        }
+        
         this->channel->decref();
     }
 
@@ -164,10 +167,9 @@ public:
 
 protected:
     struct timespec last_time;
-    int ping_interval; /*millisecond*/
+    int ping_interval = 5*1000; /*millisecond*/
     size_t size_limit;
     bool auto_gen_mkey; // random Masking-Key
-    std::random_device rd;
     std::mt19937 gen;
     std::string sec_protocol{"chat"}; // Sec-WebSocket-Protocol
     std::string sec_version{"13"};    // Sec-WebSocket-Version
@@ -186,6 +188,7 @@ protected:
 
 private:
     WFChannel *channel;
+    WFTimerTask *ping_timer;
 };
 
 class WebSocketChannelClient : public WFChannelClient, public WebSocketChannel {
@@ -221,6 +224,8 @@ public:
             }
         } else {
             this->process_header_rsp((protocol::HttpResponse *)message);
+            if (this->ping_interval > 0)
+                this->create_ping_timer();
             this->handshake_status = WS_HANDSHAKE_OPEN;
         }
 
@@ -303,7 +308,8 @@ public:
             }
         } else {
             this->process_header_req((protocol::HttpRequest *)message);
-            this->create_ping_timer();
+            if (this->ping_interval > 0)
+                this->create_ping_timer();
             this->handshake_status = WS_HANDSHAKE_OPEN;
         }
 
