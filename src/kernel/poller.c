@@ -318,14 +318,16 @@ static int __poller_remove_node(struct __poller_node *node, poller_t *poller)
 	removed = node->removed;
 	if (!removed)
 	{
-		poller->nodes[node->data.fd] = NULL;
+		if (node->data.fd >= 0)
+            poller->nodes[node->data.fd] = NULL;
 
 		if (node->in_rbtree)
 			__poller_tree_erase(node, poller);
 		else
 			list_del(&node->list);
 
-		__poller_del_fd(node->data.fd, node->event, poller);
+		if (node->data.fd >= 0)
+            __poller_del_fd(node->data.fd, node->event, poller);
 	}
 
 	pthread_mutex_unlock(&poller->mutex);
@@ -1471,8 +1473,25 @@ int poller_set_timeout(int fd, int timeout, poller_t *poller)
 	return -!node;
 }
 
+int poller_del_timer_node(struct poller_result *res_node, poller_t *poller)
+{
+	struct __poller_node *node;
+
+    node = (struct __poller_node*) res_node;
+    if (!__poller_remove_node(node, poller)){
+        node->removed = 1;
+        node->error = 0;
+        node->state = PR_ST_STOPPED;
+        free(node->res);
+        poller->cb((struct poller_result *)node, poller->ctx);
+        return 0;
+    }
+    
+    return -1;
+}
+
 int poller_add_timer(const struct timespec *value, void *context,
-					 poller_t *poller)
+					 poller_t *poller, struct poller_result **res_node)
 {
 	struct __poller_node *node;
 
@@ -1499,6 +1518,9 @@ int poller_add_timer(const struct timespec *value, void *context,
 		pthread_mutex_lock(&poller->mutex);
 		__poller_insert_node(node, poller);
 		pthread_mutex_unlock(&poller->mutex);
+
+        if (res_node)
+            *res_node = (struct poller_result*)node;
 		return 0;
 	}
 

@@ -397,6 +397,7 @@ int Communicator::first_timeout_recv(CommSession *session) {
 }
 
 void Communicator::release_conn(struct CommConnEntry *entry) {
+    std::cout << __func__ << std::endl;
     delete entry->conn;
     if (!entry->service)
         pthread_mutex_destroy(&entry->mutex);
@@ -559,7 +560,7 @@ void Communicator::handle_incoming_request(struct poller_result *res) {
     CommTarget *target = entry->target;
     CommSession *session = NULL;
     int state;
-
+    
     switch (res->state) {
     case PR_ST_SUCCESS:
         session = entry->session;
@@ -624,6 +625,10 @@ void Communicator::handle_incoming_request(struct poller_result *res) {
             pthread_mutex_unlock(&entry->service->mutex);
             entry->state = res->state == PR_ST_ERROR ? CONN_STATE_ERROR: CONN_STATE_CLOSING;
             session = entry->session;
+            break;
+        case CONN_STATE_CLOSING:
+            if (entry->is_channel)
+                session = entry->session;
             break;
         case CONN_STATE_SUCCESS:
             /* This may happen only if handler_threads > 1. */
@@ -1837,11 +1842,16 @@ int Communicator::push(const void *buf, size_t size, CommSession *session) {
     return ret;
 }
 
+int Communicator::unsleep(SleepSession *session) {
+    return mpoller_del_timer_node(session->res_node, this->mpoller, session->poller_index);
+}
+
+
 int Communicator::sleep(SleepSession *session) {
     struct timespec value;
 
     if (session->duration(&value) >= 0) {
-        if (mpoller_add_timer(&value, session, this->mpoller) >= 0)
+        if (mpoller_add_timer(&value, session, this->mpoller, &session->res_node, &session->poller_index) >= 0)
             return 0;
     }
 

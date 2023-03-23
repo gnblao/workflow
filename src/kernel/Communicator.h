@@ -253,7 +253,12 @@ private:
     virtual int duration(struct timespec *value) = 0;
     virtual void handle(int state, int error) = 0;
 
+private:
+    struct poller_result *res_node;
+    int poller_index;
+
 public:
+    SleepSession():res_node(nullptr), poller_index(-1) {}
     virtual ~SleepSession() {}
     friend class Communicator;
 };
@@ -307,6 +312,7 @@ public:
     void unbind(CommService *service);
 
     int sleep(SleepSession *session);
+    int unsleep(SleepSession *session);
 
     int io_bind(IOService *service);
     void io_unbind(IOService *service);

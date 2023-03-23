@@ -164,6 +164,11 @@ public:
 	{
 		return this->comm.sleep(session);
 	}
+	
+    int unsleep(SleepSession *session)
+	{
+		return this->comm.unsleep(session);
+	}
 
 	/* for file aio services. */
 	int io_bind(IOService *service)

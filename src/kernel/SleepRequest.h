@@ -38,7 +38,11 @@ public:
 		if (this->scheduler->sleep(this) < 0)
 			this->handle(SS_STATE_ERROR, errno);
 	}
-
+    
+    virtual void unsleep()
+    {
+        this->scheduler->unsleep(this);
+    }
 protected:
 	int state;
 	int error;

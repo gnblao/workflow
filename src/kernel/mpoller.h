@@ -72,12 +72,29 @@ static inline int mpoller_set_timeout(int fd, int timeout, mpoller_t *mpoller)
 }
 
 static inline int mpoller_add_timer(const struct timespec *value, void *context,
-									mpoller_t *mpoller)
+									mpoller_t *mpoller, struct poller_result **res_node, int *poller_index)
 {
 	static unsigned int n = 0;
 	unsigned int index = n++ % mpoller->nthreads;
-	return poller_add_timer(value, context, mpoller->poller[index]);
+    
+    int ret = poller_add_timer(value, context, mpoller->poller[index], res_node);
+    if (!ret && poller_index)
+        *poller_index = index;
+    
+    return ret;
+	//return poller_add_timer(value, context, mpoller->poller[index]);
 }
+
+static inline int mpoller_del_timer_node(struct poller_result *res_node,
+									mpoller_t *mpoller, int poller_index)
+{
+   
+    if (poller_index >= 0)
+        return poller_del_timer_node(res_node, mpoller->poller[poller_index]);
+    
+    return -1;
+}
+
 
 #endif
 
