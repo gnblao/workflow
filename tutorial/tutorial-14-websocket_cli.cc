@@ -50,6 +50,7 @@ int main(int argc, char *argv[])
 	}
     
     WFWebSocketClient client(argv[1]);
+    client.set_auto_gen_mkey(false);
     client.set_process_text_fn(process_text);
     
     std::string s125 = "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";

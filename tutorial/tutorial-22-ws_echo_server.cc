@@ -47,6 +47,7 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, sig_handler);
 
     WFWebSocketServer server;
+    server.set_ping_interval(20*1000);
     server.set_process_text_fn(process_text);
 
     if (argc == 4) {
