@@ -397,7 +397,6 @@ int Communicator::first_timeout_recv(CommSession *session) {
 }
 
 void Communicator::release_conn(struct CommConnEntry *entry) {
-    std::cout << __func__ << std::endl;
     delete entry->conn;
     if (!entry->service)
         pthread_mutex_destroy(&entry->mutex);
