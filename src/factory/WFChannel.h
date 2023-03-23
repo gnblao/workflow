@@ -71,6 +71,7 @@ public:
     virtual bool is_server() = 0;
     virtual bool is_open()   = 0;
     virtual int  shutdown()  = 0;
+    virtual void set_termination_cb(std::function<void()>)  = 0;
 };
 
 template <typename ChannelBase =
@@ -139,7 +140,7 @@ private:
     std::atomic<long>      ref;
 
     std::atomic_bool stop_flag{false};
-
+    std::function<void()> termination_cb;
 public:
     // virtual MsgSession *new_msg_session() {return nullptr;};
     long long get_msg_seq()
@@ -342,7 +343,7 @@ public:
 protected:
     /*for client*/
     explicit WFChannelImpl(int retry_max, task_callback_t &&cb)
-        : ChannelBase(retry_max, std::move(cb))
+        : ChannelBase(retry_max, std::move(cb)), termination_cb(nullptr)
     {
         this->msg_seq   = 0;
         this->req_seq   = 0;
@@ -352,7 +353,7 @@ protected:
 
     /*for server*/
     explicit WFChannelImpl(CommScheduler *scheduler, task_callback_t &&cb)
-        : ChannelBase(nullptr, scheduler, std::move(cb))
+        : ChannelBase(nullptr, scheduler, std::move(cb)), termination_cb(nullptr)
     {
         this->msg_seq   = 0;
         this->req_seq   = 0;
@@ -361,6 +362,11 @@ protected:
     }
 
 protected:
+    virtual void set_termination_cb(std::function<void()> bc) 
+    {
+        this->termination_cb = std::move(bc);
+    }
+    
     virtual void delete_this(void *t)
     {
         this->stop_flag = true;
@@ -377,7 +383,10 @@ protected:
             }
             // delete in;
         }
-        
+       
+        if (this->termination_cb)
+            this->termination_cb();
+
         this->decref();
     }
 
