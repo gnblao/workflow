@@ -22,6 +22,7 @@
 #include "list.h"
 #include "poller.h"
 #include "mpoller.h"
+#include <atomic>
 #include <errno.h>
 #include <list>  // c++
 #include <mutex> // c++
@@ -254,11 +255,10 @@ private:
     virtual void handle(int state, int error) = 0;
 
 private:
-    struct poller_result *res_node;
-    int poller_index;
+    unsigned int timerid;
 
 public:
-    SleepSession():res_node(nullptr), poller_index(-1) {}
+    SleepSession(): timerid(0) {}
     virtual ~SleepSession() {}
     friend class Communicator;
 };

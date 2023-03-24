@@ -19,6 +19,7 @@
 #ifndef _SLEEPREQUEST_H_
 #define _SLEEPREQUEST_H_
 
+#include <atomic>
 #include <errno.h>
 #include "SubTask.h"
 #include "Communicator.h"
@@ -36,8 +37,9 @@ public:
 	virtual void dispatch()
 	{
 		if (this->scheduler->sleep(this) < 0)
-			this->handle(SS_STATE_ERROR, errno);
-	}
+            this->handle(SS_STATE_ERROR, errno);
+    }
+
     
     virtual void unsleep()
     {
@@ -46,7 +48,7 @@ public:
 protected:
 	int state;
 	int error;
-
+   
 protected:
 	CommScheduler *scheduler;
 

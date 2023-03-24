@@ -72,26 +72,32 @@ static inline int mpoller_set_timeout(int fd, int timeout, mpoller_t *mpoller)
 }
 
 static inline int mpoller_add_timer(const struct timespec *value, void *context,
-									mpoller_t *mpoller, struct poller_result **res_node, int *poller_index)
+									mpoller_t *mpoller, unsigned int *timerid)
 {
 	static unsigned int n = 0;
 	unsigned int index = n++ % mpoller->nthreads;
+
+    if (timerid)
+        __atomic_store_n(timerid, index << POLLER_TIMER_SHIFT, __ATOMIC_SEQ_CST);
     
-    int ret = poller_add_timer(value, context, mpoller->poller[index], res_node);
-    if (!ret && poller_index)
-        *poller_index = index;
+    int ret = poller_add_timer(value, context, mpoller->poller[index], timerid);
+    if (ret)
+        *timerid = 0;
     
     return ret;
-	//return poller_add_timer(value, context, mpoller->poller[index]);
 }
 
-static inline int mpoller_del_timer_node(struct poller_result *res_node,
-									mpoller_t *mpoller, int poller_index)
+static inline int mpoller_del_timer(unsigned int timerid, mpoller_t *mpoller)
 {
-   
-    if (poller_index >= 0)
-        return poller_del_timer_node(res_node, mpoller->poller[poller_index]);
+    unsigned int poller_index;
+
+    poller_index = timerid >> POLLER_TIMER_SHIFT;
+    timerid = (timerid - (poller_index << POLLER_TIMER_SHIFT));
     
+    if (timerid > 0) {
+        return poller_del_timer(timerid, mpoller->poller[poller_index]);
+    }
+
     return -1;
 }
 

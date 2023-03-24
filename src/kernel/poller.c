@@ -40,6 +40,7 @@
 #include "list.h"
 #include "rbtree.h"
 #include "poller.h"
+#include "bitmap.h"
 
 #define POLLER_BUFSIZE			(256 * 1024)
 #define POLLER_EVENTS_MAX		256
@@ -81,7 +82,9 @@ struct __poller
 	struct list_head timeo_list;
 	struct list_head no_timeo_list;
 	struct __poller_node **nodes;
-	pthread_mutex_t mutex;
+	struct __poller_node **timer_nodes;
+    BMP_DECLARE(timer_bmp, POLLER_TIMER_MAX);
+    pthread_mutex_t mutex;
 	char buf[POLLER_BUFSIZE];
 };
 
@@ -921,6 +924,11 @@ static void __poller_handle_timeout(const struct __poller_node *time_node,
 	{
 		node = list_entry(timeo_list.next, struct __poller_node, list);
 		list_del(&node->list);
+       
+        if (node->data.operation == PD_OP_TIMER) {
+            bitmap_clear_bit(poller->timer_bmp, node->data.timerid);
+            poller->timer_nodes[node->data.timerid] = NULL;
+        }
 
 		node->error = ETIMEDOUT;
 		node->state = PR_ST_ERROR;
@@ -1079,7 +1087,13 @@ poller_t *__poller_create(void **nodes_buf, const struct poller_params *params)
 	if (!poller)
 		return NULL;
 
-	poller->pfd = __poller_create_pfd();
+	void **timer_nodes = (void **)calloc(POLLER_TIMER_MAX, sizeof (void *));
+    if (!timer_nodes) {
+        free(poller);
+        return NULL;
+    }
+	
+    poller->pfd = __poller_create_pfd();
 	if (poller->pfd >= 0)
 	{
 		if (__poller_create_timer(poller) >= 0)
@@ -1089,7 +1103,10 @@ poller_t *__poller_create(void **nodes_buf, const struct poller_params *params)
 			{
 				poller->nodes = (struct __poller_node **)nodes_buf;
 				poller->max_open_files = params->max_open_files;
-				poller->cb = params->callback;
+				poller->timer_nodes = (struct __poller_node **)timer_nodes;
+				bitmap_zero(poller->timer_bmp, POLLER_TIMER_MAX);
+                bitmap_set_bit(poller->timer_bmp, 0); /*timerid = 0 not use*/
+                poller->cb = params->callback;
 				poller->ctx = params->context;
 
 				poller->timeo_tree.rb_node = NULL;
@@ -1135,6 +1152,7 @@ void __poller_destroy(poller_t *poller)
 	pthread_mutex_destroy(&poller->mutex);
 	close(poller->timerfd);
 	close(poller->pfd);
+	free(poller->timer_nodes);
 	free(poller);
 }
 
@@ -1473,25 +1491,51 @@ int poller_set_timeout(int fd, int timeout, poller_t *poller)
 	return -!node;
 }
 
-int poller_del_timer_node(struct poller_result *res_node, poller_t *poller)
+int poller_del_timer(unsigned int timerid, poller_t *poller)
 {
-	struct __poller_node *node;
+    struct __poller_node *node;
 
-    node = (struct __poller_node*) res_node;
-    if (!__poller_remove_node(node, poller)){
-        node->removed = 1;
-        node->error = 0;
-        node->state = PR_ST_STOPPED;
-        free(node->res);
-        poller->cb((struct poller_result *)node, poller->ctx);
-        return 0;
+    if ((size_t)timerid >= POLLER_TIMER_MAX)
+    {
+        errno = timerid < 0 ? EBADF : EMFILE;
+        return -1;
     }
-    
-    return -1;
+
+    pthread_mutex_lock(&poller->mutex);
+    node = poller->timer_nodes[timerid];
+    if (node)
+    {
+        poller->timer_nodes[timerid] = NULL;
+        bitmap_clear_bit(poller->timer_bmp, node->data.timerid);
+
+        if (node->in_rbtree)
+            __poller_tree_erase(node, poller);
+        else
+            list_del(&node->list);
+
+        node->error = 0;
+        node->state = PR_ST_DELETED;
+        if (poller->stopped)
+        {
+            free(node->res);
+            poller->cb((struct poller_result *)node, poller->ctx);
+        }
+        else
+        {
+            node->removed = 1;
+            write(poller->pipe_wr, &node, sizeof (void *));
+        }
+    }
+    else
+        errno = ENOENT;
+
+    pthread_mutex_unlock(&poller->mutex);
+    return -!node;
 }
 
+
 int poller_add_timer(const struct timespec *value, void *context,
-					 poller_t *poller, struct poller_result **res_node)
+					 poller_t *poller, unsigned int *timerid)
 {
 	struct __poller_node *node;
 
@@ -1517,11 +1561,18 @@ int poller_add_timer(const struct timespec *value, void *context,
 
 		pthread_mutex_lock(&poller->mutex);
 		__poller_insert_node(node, poller);
-		pthread_mutex_unlock(&poller->mutex);
+        
+        unsigned long id;
+        id = bitmap_find_first_clear_bit(poller->timer_bmp, 0, POLLER_TIMER_MAX);
+        bitmap_set_bit(poller->timer_bmp, id);
+        node->data.timerid = id;
 
-        if (res_node)
-            *res_node = (struct poller_result*)node;
-		return 0;
+        poller->timer_nodes[id] = node; 
+        if (timerid)
+            __atomic_store_n(timerid, *timerid + id, __ATOMIC_SEQ_CST);
+		pthread_mutex_unlock(&poller->mutex);
+		
+        return 0;
 	}
 
 	return -1;

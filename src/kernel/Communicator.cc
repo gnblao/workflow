@@ -427,7 +427,6 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt, struct Comm
     CommSession *session = entry->session;
     CommService *service;
     int timeout;
-    int ret;
 
     cnt = __send_vectors(vectors, cnt, entry);
     if (cnt != 0)
@@ -1842,7 +1841,7 @@ int Communicator::push(const void *buf, size_t size, CommSession *session) {
 }
 
 int Communicator::unsleep(SleepSession *session) {
-    return mpoller_del_timer_node(session->res_node, this->mpoller, session->poller_index);
+    return mpoller_del_timer(session->timerid, this->mpoller);
 }
 
 
@@ -1850,7 +1849,7 @@ int Communicator::sleep(SleepSession *session) {
     struct timespec value;
 
     if (session->duration(&value) >= 0) {
-        if (mpoller_add_timer(&value, session, this->mpoller, &session->res_node, &session->poller_index) >= 0)
+        if (mpoller_add_timer(&value, session, this->mpoller, &session->timerid) >= 0)
             return 0;
     }
 
