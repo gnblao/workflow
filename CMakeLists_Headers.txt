@@ -9,6 +9,7 @@ set(COMMON_KERNEL_HEADERS
 	src/kernel/IORequest.h
 	src/kernel/Executor.h
 	src/kernel/list.h
+	src/kernel/bitmap.h
 	src/kernel/mpoller.h
 	src/kernel/poller.h
 	src/kernel/msgqueue.h
