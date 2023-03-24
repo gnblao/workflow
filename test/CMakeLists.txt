@@ -59,6 +59,7 @@ set(TEST_LIST
 	dns_unittest
 	resource_unittest
 	uriparser_unittest
+	bitmap_unittest
 )
 
 if (APPLE)
