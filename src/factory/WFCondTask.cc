@@ -55,7 +55,7 @@ void WFTimedWaitTask::clear_timer()
 
 void WFTimedWaitTask::count()
 {
-	if (--this->value == 0)
+    if (this->flag.exchange(true))
 	{
 		if (this->state == WFT_STATE_UNDEFINED)
 			this->state = WFT_STATE_SUCCESS;
@@ -79,7 +79,7 @@ void WFTimedWaitTask::dispatch()
 	if (this->timer)
 		timer->dispatch();
 
-	this->WFMailboxTask::count();
+	//this->WFMailboxTask::count();
 }
 
 WFTimedWaitTask::~WFTimedWaitTask()

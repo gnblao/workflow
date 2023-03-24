@@ -43,7 +43,7 @@ private:
 
 public:
 	explicit WFCondWaitTask(WFCondition *cond, wait_callback_t&& cb) :
-		WFMailboxTask(&this->msg, 1, std::move(cb))
+		WFMailboxTask(&this->msg, std::move(cb))
 	{ 
         this->cond = cond;
         cond->add_waittask(this);

@@ -196,8 +196,6 @@ public:
     virtual int send_header_req(WFChannel *);
 
     virtual int process_header_rsp(protocol::HttpResponse *message) { return 0; }
-    //virtual int process_text(protocol::WebSocketFrame *msg);
-    //virtual int process_binary(protocol::WebSocketFrame *msg) { return 0; }
 
     virtual int process_msg(MSG *message) {
         if (message->get_seq() > 0) {
@@ -280,8 +278,6 @@ public:
 class WebSocketChannelServer : public WFChannelServer, public WebSocketChannel {
 public:
     virtual int process_header_req(protocol::HttpRequest *req);
-    //virtual int process_text(protocol::WebSocketFrame *msg);
-    //virtual int process_binary(protocol::WebSocketFrame *msg) { return 0; }
 
     virtual int process_msg(MSG *message) {
         if (message->get_seq() > 0) {
