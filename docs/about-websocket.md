@@ -6,7 +6,7 @@ git：
 https://github.com/gnblao/workflow/tree/channel
 
 ## 关于channel的一些想法
-  （https://github.com/sogou/workflow/issues/873）
+  https://github.com/sogou/workflow/issues/873
 
 
 ## 现有websocket的两个dome  
