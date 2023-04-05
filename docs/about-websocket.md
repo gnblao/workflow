@@ -13,8 +13,7 @@ https://github.com/gnblao/workflow/tree/channel
 server：/tutorial/tutorial-22-ws_echo_server.cc  
 client：/tutorial/tutorial-14-websocket_cli.cc  
 
-[编译和安装]（https://github.com/sogou/workflow#readme）   
-
+[编译和安装][https://github.com/sogou/workflow#readme]  
 
 ## ws
 srv：
