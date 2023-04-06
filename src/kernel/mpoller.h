@@ -75,15 +75,16 @@ static inline int mpoller_add_timer(const struct timespec *value, void *context,
 									mpoller_t *mpoller, unsigned int *timerid)
 {
 	static unsigned int n = 0;
+	unsigned int tid = 0;
 	unsigned int index = n++ % mpoller->nthreads;
 
-    if (timerid)
-        __atomic_store_n(timerid, index << POLLER_TIMER_SHIFT, __ATOMIC_SEQ_CST);
-    
-    int ret = poller_add_timer(value, context, mpoller->poller[index], timerid);
+    int ret = poller_add_timer(value, context, mpoller->poller[index], &tid);
     if (ret)
-        *timerid = 0;
+        return ret;;
     
+    if (timerid)
+        *timerid = ((index << POLLER_TIMER_SHIFT) + tid);
+
     return ret;
 }
 

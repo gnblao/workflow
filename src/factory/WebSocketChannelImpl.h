@@ -52,7 +52,6 @@ using WSFrame = WFChannelMsg<protocol::WebSocketFrame>;
 using websocket_process_t = std::function<void(WSFrame *)>;
 using websocket_callback_t = std::function<void(WSFrame *)>;
 
-//class WebSocketChannel {
 class WebSocketChannel {
 public:
     void set_sec_protocol(const std::string &protocol) { this->sec_protocol = protocol; }
@@ -87,6 +86,7 @@ public:
     virtual int send_close(short status_code);
     virtual int send_text(const char *data, size_t size);
     virtual int send_binary(const char *data, size_t size);
+    
     virtual int send_frame(const char *data, size_t size, size_t frame_size, 
             enum ws_opcode opcode, std::function<void()> cb = nullptr);
     virtual int __send_frame(const char *data, size_t size, enum ws_opcode opcode, bool fin, 

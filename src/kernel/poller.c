@@ -1568,8 +1568,9 @@ int poller_add_timer(const struct timespec *value, void *context,
         node->data.timerid = id;
 
         poller->timer_nodes[id] = node; 
-        if (timerid)
-            __atomic_store_n(timerid, *timerid + id, __ATOMIC_SEQ_CST);
+        if (timerid) 
+            *timerid = id;
+
 		pthread_mutex_unlock(&poller->mutex);
 		
         return 0;
