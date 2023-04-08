@@ -1,15 +1,16 @@
-# 这是基于channel实现的websocket协议  
+# websocket协议  
+这是基于channel实现的websocket协议
 （ws的特性实现不完善，有想法的小伙伴，可以玩玩～～）
 
 
 git：
 https://github.com/gnblao/workflow/tree/channel
 
-## 关于channel的一些想法
-  https://github.com/sogou/workflow/issues/873
+## 关于channel
+  [关于channel](https://github.com/gnblao/workflow/blob/channel/docs/about-channel.md)
 
 ## 编译和安装
-https://github.com/sogou/workflow#readme
+[编译和安装](https://github.com/sogou/workflow#readme)
 
 ## 现有websocket的两个dome  
 ### server：/tutorial/tutorial-22-ws_echo_server.cc  
