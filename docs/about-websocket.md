@@ -13,7 +13,8 @@ https://github.com/gnblao/workflow/tree/channel
 [编译和安装](https://github.com/sogou/workflow#readme)
 
 ## 现有websocket的两个dome  
-### server：/tutorial/tutorial-22-ws_echo_server.cc  
+### server：
+* /tutorial/tutorial-22-ws_echo_server.cc  
 ~~~cpp
 static WFFacilities::WaitGroup wait_group(1);
 
@@ -73,7 +74,8 @@ int main(int argc, char *argv[]) {
 }
 ~~~
 
-### client：/tutorial/tutorial-14-websocket_cli.cc  
+### client：
+* /tutorial/tutorial-14-websocket_cli.cc  
 ~~~cpp
 void process_text(WebSocketChannel *ws, protocol::WebSocketFrame *in) {
     std::cout << std::string((char *)in->get_parser()->payload_data,
