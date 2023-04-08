@@ -1,5 +1,8 @@
 [English version](README.md)
 
+[关于Channel](docs/about-channel.md)
+
+
 ## Sogou C++ Workflow
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
 [![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/)
@@ -126,7 +129,7 @@ sudo dnf install workflow
     * [异步kafka客户端：kafka_cli](docs/tutorial-13-kafka_cli.md)
     * [异步DNS客户端：dns_cli](docs/tutorial-17-dns_cli.md)
   * protocol
-    * [websocket](docs/about-websocket.md)
+    * [channel/websocket](docs/about-websocket.md)
 
 
 #### 编程范式
