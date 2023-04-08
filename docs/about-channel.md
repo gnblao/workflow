@@ -5,7 +5,7 @@
 	* 全双工：req->req->req->rsp->req->rsp->rsp-> 或者是csjcjhbvvjbbdsb->rsp
 
 * 半双工协议：http1.X 。。。。。  
-* 全双工协议：http2 webwosket quic 。。。。。  
+* 全双工协议：http2 websocket quic 。。。。。  
 
 全双工协议有个特点在tcp/udp之上为了复用一个链接，搞一个传输frame层。在frame之上堆stream和req之类的.  
 
