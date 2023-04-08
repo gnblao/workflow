@@ -83,7 +83,7 @@ void process_text(WebSocketChannel *ws, protocol::WebSocketFrame *in) {
               << std::endl;
     
     //ws->send_text(buf, len);
-    //ws->send_frame(buf, len, freamsize, WebSocketFrameText)
+    //ws->send_frame(buf, len, framelen, WebSocketFrameText)
 }
 
 
