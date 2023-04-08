@@ -91,8 +91,11 @@ int main(int argc, char *argv[])
 {
     if (argc != 2)
     {
-    	fprintf(stderr, "USAGE: %s <url>\n	url format: ws://host:ip\n", argv[0]);
-		return 0;
+    	
+        fprintf(stderr, "USAGE: %s <url>\n"
+                        " url format: ws://host:ip\n"
+                        "             wss://host:ip\n", argv[0]);
+        return 0;
     }
     
     WFWebSocketClient client(argv[1]);
@@ -113,7 +116,7 @@ int main(int argc, char *argv[])
             break;
     }
 
-	return 0;
+    return 0;
 }
 ~~~
 
