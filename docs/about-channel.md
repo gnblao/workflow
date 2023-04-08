@@ -19,7 +19,7 @@
 
 ## channel支持协议
 * protocol
-    * [websocket](docs/about-websocket.md)
+    * [websocket](about-websocket.md)
     * [stream (TODO)]
     * [quic (TODO)]
 
