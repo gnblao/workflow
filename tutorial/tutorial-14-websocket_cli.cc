@@ -44,10 +44,14 @@ void process_text(WebSocketChannel *ws, protocol::WebSocketFrame *in) {
 int main(int argc, char *argv[])
 {
 	if (argc != 2)
-	{
-		fprintf(stderr, "USAGE: %s <url>\n	url format: ws://host:ip\n", argv[0]);
-		return 0;
-	}
+    {
+    	
+        fprintf(stderr, "USAGE: %s <url>\n"
+                        " url format: ws://host:ip\n"
+                        "             wss://host:ip\n", argv[0]);
+        return 0;
+    }
+	
     
     WFWebSocketClient client(argv[1]);
     client.set_auto_gen_mkey(false);
