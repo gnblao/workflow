@@ -1,5 +1,7 @@
 [简体中文版（推荐）](README_cn.md)
 
+[关于Channel](docs/about-channel.md)
+
 ## Sogou C++ Workflow
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
@@ -132,7 +134,7 @@ If you want to use xmake to build workflow, you can see [xmake build document](d
   * [Asynchronous MySQL client：mysql\_cli](docs/en/tutorial-12-mysql_cli.md)
   * [Asynchronous Kafka client: kafka\_cli](docs/en/tutorial-13-kafka_cli.md)
 * protocol
-  * [websocket](docs/about-websocket.md)
+  * [channel/websocket](docs/about-websocket.md)
 
 #### Programming paradigm
 
