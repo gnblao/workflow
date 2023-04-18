@@ -1,7 +1,10 @@
 [简体中文版（推荐）](README_cn.md)
 
-<font size=50 color=red>[关于Channel](docs/about-channel.md)</font>
+
+Channel]
 =
+<font size=50 color=red>[关于Channel](docs/about-channel.md)</font>
+
 
 
 
