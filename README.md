@@ -1,6 +1,6 @@
 [简体中文版（推荐）](README_cn.md)
 
-[关于Channel](docs/about-channel.md)
+<font size=7 color=red>[关于Channel](docs/about-channel.md)</font>
 
 ## Sogou C++ Workflow
 
