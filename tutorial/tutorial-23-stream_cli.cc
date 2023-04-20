@@ -1,0 +1,98 @@
+
+#include "workflow/EndpointParams.h"
+#include "workflow/StreamMessage.h"
+#include "workflow/WFFacilities.h"
+#include "workflow/WFGlobal.h"
+#include "workflow/WFStreamClient.h"
+
+#include "unistd.h"
+#include <cstring>
+#include <ctime>
+#include <iostream>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string>
+
+int frist_msg_fill(protocol::StreamMessage *in) {
+    size_t len;
+    std::string s={"gdhjahgjgasjhfdhasfghasfhsaasgas"};
+    
+    len = s.length();
+    in->append_fill(s.c_str(), len);
+
+    return s.length();
+}
+
+
+int process_msg(WFChannel *ch, protocol::StreamMessage *in) {
+    std::cout << std::string((char *)in->get_parser()->data,
+                             in->get_parser()->size)
+              << std::endl;
+
+    //auto *channel = static_cast<StreamChannelClient*>(ch);
+    //channel->send(buf, size);
+
+    return 0;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+
+        fprintf(stderr,
+                "USAGE: %s <url>\n"
+                " url format: ws://host:ip\n"
+                "             wss://host:ip\n",
+                argv[0]);
+        return 0;
+    }
+
+    WFStreamClient client(argv[1]);
+    client.set_process_fn(process_msg);
+    client.set_frist_msg_fill_fn(frist_msg_fill);
+
+    std::string s125 =
+        "111111111111111111111111111111111111111111111111111111111111111111111"
+        "11111111111111111111111111111111111111111111111111111111";
+    std::string s126 =
+        "111111111111111111111111111111111111111111111111111111111111111111111"
+        "111111111111111111111111111111111111111111111111111111111";
+    std::string s127 =
+        "111111111111111111111111111111111111111111111111111111111111111111111"
+        "1111111111111111111111111111111111111111111111111111111111";
+    std::string s200 =
+        "111111111111111111111111111111111111111111111111111111111111111111111"
+        "111111111111111111111111111111111111111111111111111111111111111111111"
+        "11111111111111111111111111111111111111111111111111111111111111";
+
+    std::string s5000;
+    for (int i = 0; i < 4000; i++)
+        s5000 += s200;
+    std::string s;
+    while (1) {
+        usleep(50000);
+        std::cout << "please enter your context:";
+        std::cin >> s;
+        // std::cout <<s << std::endl;
+
+        if (!s.compare("exit"))
+            break;
+
+        if (!s.compare("125"))
+            s = s125;
+        if (!s.compare("126"))
+            s = s126;
+        if (!s.compare("127"))
+            s = s127;
+        if (!s.compare("200"))
+            s = s200;
+        if (!s.compare("5000"))
+            s = s5000;
+        if (!client.send(s.c_str(), s.length()))
+            break;
+    }
+
+    // sleep(10);
+    return 0;
+}

@@ -58,6 +58,8 @@ set(INCLUDE_HEADERS
 	src/protocol/DnsUtil.h
 	src/protocol/WebSocketMessage.h
 	src/protocol/websocket_parser.h
+	src/protocol/StreamMessage.h
+	src/protocol/stream_parser.h
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
 	src/protocol/DnsUtil.h
@@ -68,10 +70,12 @@ set(INCLUDE_HEADERS
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h
 	src/server/WFWebSocketServer.h
+	src/server/WFStreamServer.h
 	src/client/WFMySQLConnection.h
 	src/client/WFConsulClient.h
 	src/client/WFDnsClient.h
 	src/client/WFWebSocketClient.h
+	src/client/WFStreamClient.h
 	src/manager/DnsCache.h
 	src/manager/WFGlobal.h
 	src/manager/UpstreamManager.h
@@ -106,6 +110,7 @@ set(INCLUDE_HEADERS
 	src/factory/WFChannelMsg.h
 	src/factory/WFChannelRequest.h
 	src/factory/WebSocketChannelImpl.h
+	src/factory/WFTemplateChannel.h
 	src/factory/WFMessageQueue.h
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDnsResolver.h
