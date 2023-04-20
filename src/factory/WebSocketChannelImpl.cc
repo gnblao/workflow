@@ -191,8 +191,8 @@ int WebSocketChannel::process_close(protocol::WebSocketFrame *in) {
     return 0;
 }
 
-int WebSocketChannelClient::send_header_req(WFChannel *) {
-    this->set_prepare(nullptr);
+int WebSocketChannelClient::send_header_req() {
+    //this->set_prepare(nullptr);
     // WSHearderReq *task = new WSHearderReq(this, nullptr);
     WSHearderReq *task = new WSHearderReq(this);
 

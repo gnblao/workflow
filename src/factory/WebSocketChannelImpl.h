@@ -78,7 +78,8 @@ public:
     }
    
     // client
-    virtual int send_header_req(WFChannel *) { return 0; }
+    //virtual int send_header_req(WFChannel *) { return 0; }
+    virtual int send_header_req() { return 0; }
     virtual int process_header_rsp(protocol::HttpResponse *message) { return 0; }
 
     virtual int send_ping();
@@ -193,10 +194,9 @@ private:
 
 class WebSocketChannelClient : public WFChannelClient, public WebSocketChannel {
 public:
-    virtual int send_header_req(WFChannel *);
+    virtual int send_header_req();
 
-    virtual int process_header_rsp(protocol::HttpResponse *message) { return 0; }
-
+    virtual int process_header_rsp(protocol::HttpResponse *message) { return 0;};
     virtual int process_msg(MSG *message) {
         if (message->get_seq() > 0) {
             protocol::WebSocketFrame *msg = (protocol::WebSocketFrame *)message;
@@ -262,7 +262,7 @@ protected:
     }
 
 public:
-    WebSocketChannelClient(task_callback_t &&cb = nullptr)
+    explicit WebSocketChannelClient(channel_callback_t &&cb = nullptr)
         : WFChannelClient(0, std::move(cb)), WebSocketChannel(this) {
         this->auto_gen_mkey = true;
 
@@ -271,8 +271,10 @@ public:
         this->set_send_timeout(-1);
 
         this->set_prepare(
-            std::bind(&WebSocketChannelClient::send_header_req, this, std::placeholders::_1));
+            std::bind(&WebSocketChannelClient::send_header_req, this));
     }
+
+    virtual ~WebSocketChannelClient(){}
 };
 
 class WebSocketChannelServer : public WFChannelServer, public WebSocketChannel {
@@ -331,7 +333,7 @@ public:
     }
 
 public:
-    WebSocketChannelServer(CommService *service, CommScheduler *scheduler)
+    explicit WebSocketChannelServer(CommService *service, CommScheduler *scheduler)
         : WFChannelServer(scheduler, service), WebSocketChannel(this) {
         this->auto_gen_mkey = auto_gen_mkey;
 
@@ -341,6 +343,8 @@ public:
 
         this->ping_interval = 5 * 1000;
     }
+
+    virtual ~WebSocketChannelServer(){}
 };
 
 #endif // __FACTORY_WEBSOCKETCHANNELIMPL_H_
