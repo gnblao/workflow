@@ -1,5 +1,8 @@
 [English version](README.md)
 
+
+Channel
+=
 [关于Channel](docs/about-channel.md)
 
 
