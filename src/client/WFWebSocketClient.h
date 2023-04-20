@@ -66,7 +66,7 @@ public:
     }
 
 protected:
-    void channel_done_callback(WFChannel::BaseTask *)
+    void channel_done_callback(WFChannel::ChannelBase *)
     {
         std::unique_lock<std::mutex> lck(this->mutex_);
         this->client_ = nullptr;

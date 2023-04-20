@@ -48,7 +48,7 @@ public:
         return channel;
     }
     
-    WFWebSocketServer() : 
+    WFWebSocketServer(int ping_interval=10*1000) : 
         WFServer<MSG, MSG>(&WS_SERVER_PARAMS_DEFAULT, nullptr)
     {
         this->ping_interval = ping_interval;
