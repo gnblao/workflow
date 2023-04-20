@@ -52,7 +52,7 @@ protected:
     using MSG = protocol::ProtocolMessage;
 
 public:
-    using BaseTask = WFNetworkTask<MSG, MSG>;
+    using ChannelBase = WFNetworkTask<MSG, MSG>;
 
 public:
     virtual MsgSession *new_msg_session() = 0;
@@ -71,20 +71,21 @@ public:
     virtual bool is_server() = 0;
     virtual bool is_open()   = 0;
     virtual int  shutdown()  = 0;
+
     virtual void set_termination_cb(std::function<void()>)  = 0;
 };
 
-template <typename ChannelBase =
+template <typename ChannelEntry =
               WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>>
-class WFChannelImpl : public ChannelBase, public WFChannel
+class WFChannelImpl : public ChannelEntry, public WFChannel
 {
 private:
-    static_assert(std::is_base_of<BaseTask, ChannelBase>::value,
+    static_assert(std::is_base_of<ChannelBase, ChannelEntry>::value,
                   "WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>> must is "
-                  "base of ChannelBase");
+                  "base of ChannelEntry");
 
 protected:
-    using task_callback_t = std::function<void(BaseTask *)>;
+    using channel_callback_t = std::function<void(ChannelBase *)>;
 
     virtual CommMessageIn *message_in()
     {
@@ -140,7 +141,7 @@ private:
     std::atomic<long>      ref;
 
     std::atomic_bool stop_flag{false};
-    std::function<void()> termination_cb;
+    
 public:
     // virtual MsgSession *new_msg_session() {return nullptr;};
     long long get_msg_seq()
@@ -342,31 +343,37 @@ public:
 
 protected:
     /*for client*/
-    explicit WFChannelImpl(int retry_max, task_callback_t &&cb)
-        : ChannelBase(retry_max, std::move(cb)), termination_cb(nullptr)
+    explicit WFChannelImpl(int retry_max, channel_callback_t &&cb)
+        : ChannelEntry(retry_max, std::move(cb))
     {
         this->msg_seq   = 0;
         this->req_seq   = 0;
         this->ref       = 1;
         this->stop_flag = false;
+        
+        this->termination_cb = nullptr;
     }
 
     /*for server*/
-    explicit WFChannelImpl(CommScheduler *scheduler, task_callback_t &&cb)
-        : ChannelBase(nullptr, scheduler, std::move(cb)), termination_cb(nullptr)
+    explicit WFChannelImpl(CommScheduler *scheduler, channel_callback_t &&cb)
+        : ChannelEntry(nullptr, scheduler, std::move(cb))
     {
         this->msg_seq   = 0;
         this->req_seq   = 0;
         this->ref       = 1;
         this->stop_flag = false;
+        
+        this->termination_cb = nullptr;
     }
 
-protected:
-    virtual void set_termination_cb(std::function<void()> bc) 
-    {
+private:
+    std::function<void()> termination_cb;
+
+public: 
+    virtual void set_termination_cb(std::function<void()> bc) {
         this->termination_cb = std::move(bc);
-    }
-    
+    } 
+protected:
     virtual void delete_this(void *t)
     {
         this->stop_flag = true;

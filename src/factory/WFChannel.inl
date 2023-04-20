@@ -5,6 +5,9 @@
     > Created Time: 2022年05月05日 星期四 11时37分35秒
  ************************************************************************/
 
+#include "WFChannel.h"
+#include <functional>
+#include <memory>
 using WFChannelClientBase =
     WFChannelImpl<WFComplexClientTask<protocol::ProtocolMessage, protocol::ProtocolMessage>>;
 using WFChannelServerBase =
@@ -28,19 +31,19 @@ protected:
         return this->receive_timeout();
     }
 
-private:
-    std::function<void(WFChannel *)> prepare;
-
 public:
-    void set_prepare(std::function<void(WFChannel *)> prep)
+    void set_prepare(std::function<void()> fn)
     {
-        this->prepare = std::move(prep);
+        this->WFChannelClientBase::set_prepare([fn, this](ChannelBase*) {
+            fn();
+            //WFChannelClientBase::set_prepare((std::function<void(ChannelBase*)>)nullptr);
+            this->WFChannelClientBase::set_prepare(nullptr);
+        }); 
     }
 
 public:
-    WFChannelClient(int retry_max, task_callback_t &&cb)
-        : WFChannelClientBase(retry_max, std::move(cb))
-    {
+    WFChannelClient(int retry_max, channel_callback_t &&cb)
+        : WFChannelClientBase(retry_max, std::move(cb)) {
     }
 
 protected:
@@ -77,7 +80,7 @@ public:
     }
 
     explicit WFChannelServer(CommScheduler *scheduler, CommService *service = nullptr,
-                             task_callback_t &&cb = nullptr)
+                             channel_callback_t &&cb = nullptr)
         : WFChannelServerBase(scheduler, std::move(cb))
     {
     }

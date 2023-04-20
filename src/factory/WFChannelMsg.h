@@ -16,7 +16,8 @@
 #include "WFChannel.h"
 #include "Workflow.h"
 
-template <typename MSG> class WFChannelMsgBase : public SubTask, public MsgSession {
+template <typename MSG> 
+class WFChannelMsgBase : public SubTask, public MsgSession {
     static_assert(std::is_base_of<protocol::ProtocolMessage, MSG>::value,
                   "ProtocolMessage must is base of MSG");
 
