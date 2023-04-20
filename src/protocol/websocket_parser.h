@@ -101,10 +101,6 @@ void websocket_parser_deinit(websocket_parser_t *parser);
 int websocket_parser_append_message(const void *buf, size_t *n,
 									websocket_parser_t *parser);
 
-int websocket_parser_decode_payload_length(websocket_parser_t *parser);
-
-void websocket_parser_encode_payload_length(websocket_parser_t *parser);
-
 int websocket_parser_parse(websocket_parser_t *parser);
 
 void websocket_parser_mask_data(websocket_parser_t *parser);

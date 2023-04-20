@@ -174,8 +174,9 @@ bool WebSocketFrame::set_frame(const char *buf, size_t size,
 	}
 
 	this->parser->payload_data = (char *)malloc(size);
-    if (!this->parser->payload_data)
+    if (!this->parser->payload_data) {
         return false;
+    }
 
 	memcpy(this->parser->payload_data, buf, size);
 	this->parser->payload_length = size;

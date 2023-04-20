@@ -68,7 +68,10 @@ public:
 		delete this->parser;
 	}
 
-	WebSocketFrame(WebSocketFrame&& msg);
+	WebSocketFrame(const WebSocketFrame& msg) = delete;
+	WebSocketFrame& operator = (const WebSocketFrame& msg) = delete;
+	
+    WebSocketFrame(WebSocketFrame&& msg);
 	WebSocketFrame& operator = (WebSocketFrame&& msg);
 
 private:

@@ -58,6 +58,12 @@ protected:
 		return -1;
 	}
 
+	virtual int append_fill(const void *buf, size_t size)
+	{
+		errno = ENOSYS;
+		return -1;
+	}
+
 public:
 	void set_size_limit(size_t limit) { this->size_limit = limit; }
 	size_t get_size_limit() const { return this->size_limit; }
