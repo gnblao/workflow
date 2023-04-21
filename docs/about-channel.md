@@ -24,4 +24,4 @@
     * [quic (TODO)]
 
 ### 杂项
-* [channel实现过程中的细节]（https://github.com/sogou/workflow/issues/873）
+* [channel实现过程中的一些细节](https://github.com/sogou/workflow/issues/873) 
