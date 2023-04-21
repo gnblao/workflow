@@ -19,7 +19,7 @@
 #ifndef _WFCONDTASK_H_
 #define _WFCONDTASK_H_
 
-#include <bits/types/struct_timespec.h>
+#include <ctime>
 #include <cstdint>
 #include <mutex>
 #include <atomic>

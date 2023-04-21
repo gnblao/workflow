@@ -28,7 +28,7 @@
 #include "websocket_parser.h"
 #include <algorithm>
 #include <atomic>
-#include <bits/types/struct_timespec.h>
+#include <ctime>
 #include <cassert>
 #include <cstddef>
 #include <functional>
