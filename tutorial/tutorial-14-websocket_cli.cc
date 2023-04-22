@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
         s5000 += s200;
     std::string s;
     while (1) {
-        //usleep(50000);
+        usleep(50000);
         std::cout << "please enter your context:" ;
         std::cin >> s;
         //std::cout <<s << std::endl;

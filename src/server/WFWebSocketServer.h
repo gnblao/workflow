@@ -16,7 +16,7 @@
 static constexpr struct WFServerParams WS_SERVER_PARAMS_DEFAULT =
 {
 	.max_connections		=	2000,
-	.peer_response_timeout	=	10 * 1000,
+	.peer_response_timeout	=	-1,
 	.receive_timeout		=	-1,
 	.keep_alive_timeout		=	60 * 1000,
 	.request_size_limit		=	(size_t)-1,
