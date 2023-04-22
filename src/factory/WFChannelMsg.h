@@ -102,6 +102,12 @@ public:
     }
 
 private:
+    std::function<void(WFChannelMsg<MSG> *)> inner_callback;
+
+    void set_inner_callback(std::function<void(WFChannelMsg<MSG> *)> cb) {
+        this->inner_callback = std::move(cb);
+    }
+private:
     virtual void eat_msg() {
         int ret = -1;
         int state;
@@ -128,6 +134,9 @@ protected:
 
         if (this->callback)
             this->callback(this);
+        
+        if (this->inner_callback)
+            this->inner_callback(this);
 
         delete this;
         return series->pop();
@@ -143,7 +152,19 @@ protected:
 
     virtual void handle(int state, int error) {
         if (state == WFT_STATE_SUCCESS || state == WFT_STATE_TOREPLY) {
-            this->start();
+            //this->start();
+            auto pool = this->channel->get_resource_pool();
+            if (pool) {
+                auto cond = pool->get(this);
+                if (cond) {
+                    this->set_inner_callback([pool](WFChannelMsg<MSG> *){ pool->post(nullptr);});
+                    cond->start();
+                }
+            }
+        } else {
+            std::cout << "bug: WFChannelMsg<MSG> handle state must is "
+                         "WFT_STATE_SUCCESS/WFT_STATE_TOREPLY other is Bug!!!"
+                      << std::endl;
         }
     }
 

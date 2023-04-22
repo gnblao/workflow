@@ -26,7 +26,7 @@
 #include <openssl/sha.h>
 #include <string>
 
-static int __base64decode(std::string &base64, std::string &src) {
+__attribute__((unused)) static int __base64decode(std::string &base64, std::string &src) {
     size_t ret_len;
     char *p;
 
@@ -116,7 +116,7 @@ int WebSocketChannel::send_binary(const char *data, size_t size) {
     return this->send_frame(data, size, size, WebSocketFrameBinary);
 }
 
-int WebSocketChannel::send_frame(const char* buf, size_t len, size_t fragment, enum ws_opcode opcode, std::function<void()> bc) {
+int WebSocketChannel::send_frame(const char* buf, int len, int fragment, enum ws_opcode opcode, std::function<void()> bc) {
     //std::lock_guard<std::mutex> locker(mutex_);
     if (len <= fragment) {
         return this->__send_frame(buf, len, opcode, true);
@@ -137,13 +137,13 @@ int WebSocketChannel::send_frame(const char* buf, size_t len, size_t fragment, e
 
     // last fragment
     nsend = this->__send_frame(p, remain, WebSocketFrameContinuation, true,
-            [f_bc = std::move(bc)](WFChannelMsg<protocol::WebSocketFrame>*){f_bc();});
+            [bc](WFChannelMsg<protocol::WebSocketFrame>*){bc();});
     if (nsend < 0) return p - buf;
 
     return len;
 }
 
-int WebSocketChannel::__send_frame(const char *data, size_t size, enum ws_opcode opcode, bool fin,
+int WebSocketChannel::__send_frame(const char *data, int size, enum ws_opcode opcode, bool fin,
                                std::function<void(WFChannelMsg<protocol::WebSocketFrame>*)> cb, 
                                protocol::WebSocketFrame *in)  {
     int ret;

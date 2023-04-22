@@ -21,6 +21,8 @@
 #include "CommScheduler.h"
 #include "Communicator.h"
 #include "ProtocolMessage.h"
+#include "SubTask.h"
+#include "WFResourcePool.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
 
@@ -71,6 +73,7 @@ public:
     virtual bool is_server() = 0;
     virtual bool is_open()   = 0;
     virtual int  shutdown()  = 0;
+    virtual WFResourcePool* get_resource_pool()  = 0;
 
     virtual void set_termination_cb(std::function<void()>)  = 0;
 };
@@ -220,6 +223,7 @@ private:
     __MSG_HEAP       fanout_heap_in;
     std::list<MSG *> in_list;
     long long        in_list_seq = 0;
+    WFResourcePool   in_msg_pool;
 
     std::mutex       out_mutex;
     __MSG_HEAP       fanout_heap_out;
@@ -234,7 +238,10 @@ public:
     {
         return 0;
     }
-
+    
+    virtual WFResourcePool* get_resource_pool() {
+        return &this->in_msg_pool;
+    }
     virtual int fanout_msg_in(MSG *in, long long seq)
     {
         int          ret;
@@ -344,7 +351,7 @@ public:
 protected:
     /*for client*/
     explicit WFChannelImpl(int retry_max, channel_callback_t &&cb)
-        : ChannelEntry(retry_max, std::move(cb))
+        : ChannelEntry(retry_max, std::move(cb)), in_msg_pool(1)
     {
         this->msg_seq   = 0;
         this->req_seq   = 0;
@@ -356,7 +363,7 @@ protected:
 
     /*for server*/
     explicit WFChannelImpl(CommScheduler *scheduler, channel_callback_t &&cb)
-        : ChannelEntry(nullptr, scheduler, std::move(cb))
+        : ChannelEntry(nullptr, scheduler, std::move(cb)), in_msg_pool(1)
     {
         this->msg_seq   = 0;
         this->req_seq   = 0;

@@ -88,9 +88,9 @@ public:
     virtual int send_text(const char *data, size_t size);
     virtual int send_binary(const char *data, size_t size);
     
-    virtual int send_frame(const char *data, size_t size, size_t frame_size, 
+    virtual int send_frame(const char *data, int size, int frame_size, 
             enum ws_opcode opcode, std::function<void()> cb = nullptr);
-    virtual int __send_frame(const char *data, size_t size, enum ws_opcode opcode, bool fin, 
+    virtual int __send_frame(const char *data, int size, enum ws_opcode opcode, bool fin, 
             std::function<void(WFChannelMsg<protocol::WebSocketFrame> *)> cb = nullptr, protocol::WebSocketFrame *in = nullptr);
 
     virtual int process_ping(protocol::WebSocketFrame *msg);
