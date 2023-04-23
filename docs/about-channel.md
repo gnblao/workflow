@@ -1,5 +1,5 @@
-# Channel
-
+# Channel  
+  
 ##基于Sogou/Workflow扩展的全双工通讯方案
 
 
