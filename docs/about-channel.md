@@ -1,8 +1,6 @@
 # Channel  
   
 ##基于Sogou/Workflow扩展的全双工通讯方案
-
-
 * 半双工和全双工通信.  
 	* 半双工：req->rsp->req->rsp->req->rsp  
 	* 全双工：req->req->req->rsp->req->rsp->rsp-> 或者是csjcjhbvvjbbdsb->rsp
