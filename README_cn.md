@@ -3,8 +3,15 @@
 
 Channel
 =
-[关于Channel](docs/about-channel.md)
+基于Sogou/Workflow扩展的全双工通讯方案
 
+<font size=50 color=red>[关于Channel](docs/about-channel.md)</font>
+
+
+<details> <summary>Sogou C++ Workflow</summary>
+
+Sogou C++ Workflow
+===
 
 ## Sogou C++ Workflow
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
@@ -183,3 +190,5 @@ sudo dnf install workflow
 #### Gitee仓库
 用户可以在访问GitHub遇到困难时，使用我们的Gitee官方仓库：https://gitee.com/sogou/workflow  
 **另外也麻烦在Gitee上star了项目的用户，尽量同步star一下[GitHub仓库](https://github.com/sogou/workflow)。谢谢！**
+
+ </details>
