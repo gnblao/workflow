@@ -12,7 +12,7 @@ Channel
 <details> <summary>Sogou C++ Workflow</summary>
 
 Sogou C++ Workflow
-==
+===
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
 [![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/) 
