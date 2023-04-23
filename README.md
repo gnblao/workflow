@@ -3,6 +3,8 @@
 
 Channel
 =
+基于Sogou/Workflow扩展的全双工通讯方案
+
 <font size=50 color=red>[关于Channel](docs/about-channel.md)</font>
 
 
