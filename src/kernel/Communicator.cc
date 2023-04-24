@@ -1680,6 +1680,10 @@ int Communicator::reply(CommSession *session) {
 }
 
 int Communicator::channel_send_one(CommSession *session) {
+    /* note: please don't call
+     * only use in channel->msg_out()
+     * */
+    
     struct CommConnEntry *entry;
     CommConnection *conn;
     CommTarget *target = session->target;
@@ -1765,6 +1769,10 @@ int Communicator::channel_send_callback(CommSession *session) {
 }
 
 void Communicator::channel_shutdown(CommSession *session) {
+     /* note: please don't call
+     * only use in channel->shutdown
+     * */
+
     struct CommConnEntry *entry;
     CommTarget *target = session->target;
     CommConnection *conn;
@@ -1843,7 +1851,6 @@ int Communicator::push(const void *buf, size_t size, CommSession *session) {
 int Communicator::unsleep(SleepSession *session) {
     return mpoller_del_timer(session->timerid, this->mpoller);
 }
-
 
 int Communicator::sleep(SleepSession *session) {
     struct timespec value;
