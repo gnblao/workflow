@@ -58,6 +58,7 @@ protected:
 		return -1;
 	}
 
+public:
 	virtual int append_fill(const void *buf, size_t size)
 	{
 		errno = ENOSYS;
