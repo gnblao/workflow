@@ -52,15 +52,20 @@ class WFChannel
 {
 protected:
     using MSG = protocol::ProtocolMessage;
-
+    
 public:
     using ChannelBase = WFNetworkTask<MSG, MSG>;
 
 public:
+    // new ChannelMsg is safe in the new_msg_session function
     virtual MsgSession *new_msg_session() = 0;
+    
+    // Active call for send 
+    std::recursive_mutex       write_mutex;
+    // virtual MsgSession *thread_safe_new_msg_session() = 0;
 
-    virtual void incref() = 0;
-    virtual void decref() = 0;
+    virtual int incref() = 0;
+    virtual void decref(int skip_delete=0) = 0;
 
     virtual long long get_msg_seq() = 0; /*for in msg only*/
     virtual long long get_req_seq() = 0; /*for req only*/
@@ -78,8 +83,7 @@ public:
     virtual void set_termination_cb(std::function<void()>)  = 0;
 };
 
-template <typename ChannelEntry =
-              WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>>
+template <typename ChannelEntry = WFChannel::ChannelBase>
 class WFChannelImpl : public ChannelEntry, public WFChannel
 {
 private:
@@ -124,10 +128,10 @@ protected:
     {
         CommMessageOut *msg;
 
+        std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
         if (!this->is_open())
             return nullptr;
-
-        std::lock_guard<std::mutex> lck(this->write_mutex);
+        
         if (this->write_list.size())
         {
             msg = this->write_list.front();
@@ -141,9 +145,9 @@ protected:
 private:
     std::atomic<long long> msg_seq;
     std::atomic<long long> req_seq;
-    std::atomic<long>      ref;
+    std::atomic<int>       ref;
 
-    std::atomic_bool stop_flag{false};
+    std::atomic<bool> stop_flag{false};
     
 public:
     // virtual MsgSession *new_msg_session() {return nullptr;};
@@ -159,6 +163,7 @@ public:
 
     virtual int shutdown()
     {
+        std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
         if (this->stop_flag.exchange(true)) 
             return -1;
         
@@ -187,13 +192,14 @@ public:
         return false;
     };
 
-    virtual void incref()
+    virtual int incref()
     {
-        this->ref++;
+        return this->ref.fetch_add(1);
     }
-    virtual void decref()
+    
+    virtual void decref(int skip_delete=0)
     {
-        if (--this->ref == 0)
+        if (this->ref.fetch_sub(1) == 1 && !skip_delete)
             delete this;
     }
 
@@ -230,8 +236,11 @@ private:
     std::list<MSG *> out_list;
     long long        out_list_seq = 0;
 
-    std::mutex       write_mutex;
     std::list<MSG *> write_list;
+   
+protected:
+    //std::mutex       write_mutex;
+    //std::recursive_mutex       write_mutex;
 
 public:
     virtual int process_msg(MSG *msg)
@@ -242,6 +251,7 @@ public:
     virtual WFResourcePool* get_resource_pool() {
         return &this->in_msg_pool;
     }
+    
     virtual int fanout_msg_in(MSG *in, long long seq)
     {
         int          ret;
@@ -282,12 +292,11 @@ public:
     virtual int fanout_msg_out(MSG *out, long long seq)
     {
         int ret;
+        std::lock_guard<std::mutex> lck(this->out_mutex);
         if (!this->is_open())
             return -1;
 
-        std::lock_guard<std::mutex> lck(this->out_mutex);
         assert(this->out_list_seq <= seq);
-
         fanout_heap_out.emplace(std::make_pair(seq, out));
         while (fanout_heap_out.top().first == this->out_list_seq)
         {
@@ -319,23 +328,30 @@ public:
     {
         int ret;
 
-        if (!this->is_open())
-            return -1;
-
         {
-            std::lock_guard<std::mutex> lck(this->write_mutex);
+            std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
             this->write_list.push_back(out);
+
+            if (flag == WFC_MSG_STATE_OUT_LIST)
+                return 0;
         }
 
-        if (flag == WFC_MSG_STATE_OUT_LIST)
-            return 0;
+        if (this->write_mutex.try_lock()) {
+            if (!this->is_open()) {
+                this->write_mutex.unlock();
+                return -1;
+            }
 
-        ret = this->get_scheduler()->channel_send_one(this);
-        if (ret < 0)
-        {
-            this->shutdown();
+            ret = this->get_scheduler()->channel_send_one(this);
+            if (ret < 0)
+            {
+                this->shutdown();
+            }
+            
+            this->write_mutex.unlock();
+            return ret;
         }
-
+        
         return 0;
     }
 
@@ -383,7 +399,8 @@ public:
 protected:
     virtual void delete_this(void *t)
     {
-        this->stop_flag = true;
+        std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
+        this->stop_flag.exchange(true);
         CommConnection **conn = this->get_conn();
         *conn = nullptr;
 

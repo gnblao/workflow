@@ -33,23 +33,26 @@ public:
     }
 
 public:
-    explicit WFChannelMsgBase(WFChannel *channel)
-        : state(WFC_MSG_STATE_OUT), error(0), msg(new MSG) {
-        assert(channel);
-        this->channel = channel;
-        this->channel->incref();
-    }
-
     explicit WFChannelMsgBase(WFChannel *channel, MSG *msg) : state(WFC_MSG_STATE_OUT), error(0) {
         assert(channel);
         assert(msg);
-        this->channel = channel;
         this->msg = msg;
-        this->channel->incref();
+    
+        if(channel->incref() > 0) {
+            this->channel = channel;
+        } else { 
+            state = WFC_MSG_STATE_ERROR;
+            this->channel = nullptr;
+        }
     }
-
+    
+    explicit WFChannelMsgBase(WFChannel *channel)
+        : WFChannelMsgBase(channel, new MSG) {}
+    
     virtual ~WFChannelMsgBase() {
-        this->channel->decref();
+        if (this->channel)
+            this->channel->decref();
+        
         delete this->msg;
     }
 
@@ -115,12 +118,17 @@ private:
         MSG *msg = this->pick_msg();
 
         state = this->get_state();
-        if (state == WFC_MSG_STATE_IN)
+        switch (state) {
+        case WFC_MSG_STATE_IN:
             ret = channel->fanout_msg_in(msg, msg->get_seq());
-        else if (state == WFC_MSG_STATE_OUT_LIST)
+            break;
+        case WFC_MSG_STATE_OUT_LIST:
             ret = channel->msg_out_list(msg);
-        else
+            break;
+        case WFC_MSG_STATE_OUT:
             ret = channel->msg_out(msg);
+            break;
+        }
 
         if (ret < 0) {
             this->set_state(WFC_MSG_STATE_ERROR);
