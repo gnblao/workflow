@@ -15,14 +15,22 @@
 #include <stdlib.h>
 #include <string>
 
-int frist_msg_fill(protocol::StreamMessage *in) {
+using ChannelMsg = WFChannelMsg<protocol::StreamMessage>;
+ChannelMsg * frist_msg_fill(WFChannel *channel) {
     size_t len;
     std::string s={"gdhjahgjgasjhfdhasfghasfhsaasgas"};
     
-    len = s.length();
-    in->append_fill(s.c_str(), len);
+    auto task = new ChannelMsg(channel);
+    if (task) {
+        auto msg = task->get_msg();
 
-    return s.length();
+        len = s.length();
+        msg->append_fill((void *)s.c_str(), len);
+
+        return task;
+    }
+
+    return nullptr;
 }
 
 
@@ -50,7 +58,7 @@ int main(int argc, char *argv[]) {
 
     WFStreamClient client(argv[1]);
     client.set_process_fn(process_msg);
-    client.set_frist_msg_fill_fn(frist_msg_fill);
+    client.set_frist_msg_fn(frist_msg_fill);
 
     std::string s125 =
         "111111111111111111111111111111111111111111111111111111111111111111111"
