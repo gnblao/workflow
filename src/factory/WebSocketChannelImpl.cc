@@ -108,8 +108,7 @@ int WebSocketChannel::send_close(short status_code) {
 
 int WebSocketChannel::send_text(const char *data, size_t size) {
    
-    this->send_frame(data, size, size, WebSocketFrameText);
-    return 0;
+    return this->send_frame(data, size, size, WebSocketFrameText);
 }
 
 int WebSocketChannel::send_binary(const char *data, size_t size) {
@@ -147,6 +146,8 @@ int WebSocketChannel::__send_frame(const char *data, int size, enum ws_opcode op
                                std::function<void(WFChannelMsg<protocol::WebSocketFrame>*)> cb, 
                                protocol::WebSocketFrame *in)  {
     int ret;
+    if (!this->open())
+         return -1;
     
     auto *task = new WSFrame(this->channel);
     auto msg = task->get_msg();

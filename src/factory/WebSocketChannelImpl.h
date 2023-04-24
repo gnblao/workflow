@@ -112,13 +112,17 @@ public:
     virtual int process_header_req(protocol::HttpRequest *msg) { return 0; }
 
     void create_ping_timer() {
-        this->ping_timer = WFTaskFactory::create_timer_task(
-            this->ping_interval * 1000,
-            std::bind(&WebSocketChannel::timer_callback, this, std::placeholders::_1));
-        
-        this->channel->set_termination_cb([this](){this->ping_timer->unsleep();});
-        this->channel->incref();
-        this->ping_timer->start();
+       if (this->channel->incref() > 0){
+           this->ping_timer = WFTaskFactory::create_timer_task(
+                   this->ping_interval * 1000,
+                   std::bind(&WebSocketChannel::timer_callback, this, std::placeholders::_1));
+
+           this->channel->set_termination_cb([this](){this->ping_timer->unsleep();});
+           this->ping_timer->start();
+       } else {
+           // bug!!!!!!!!!!!
+           //this->channel->decref();
+       }
     }
 
     void update_lasttime() { clock_gettime(CLOCK_MONOTONIC, &this->last_time); }
@@ -270,7 +274,7 @@ public:
         this->set_receive_timeout(-1);
         this->set_send_timeout(-1);
 
-        this->set_prepare(
+        this->set_prepare_once(
             std::bind(&WebSocketChannelClient::send_header_req, this));
     }
 
