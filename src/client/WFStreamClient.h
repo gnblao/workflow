@@ -6,6 +6,7 @@
  ************************************************************************/
 
 #include "WFChannel.h"
+#include "WFChannelMsg.h"
 #include "WFTemplateChannel.h"
 #include "StreamMessage.h"
 #include "WFFacilities.h"
@@ -54,8 +55,8 @@ public:
         this->client_->set_process_msg_fn(fn); 
     }
     
-    void set_frist_msg_fill_fn(std::function<int(protocol::StreamMessage *)> fn) {
-        this->client_->set_frist_msg_fill_fn(fn); 
+    void set_frist_msg_fn(std::function<WFChannelMsg<protocol::StreamMessage>*(WFChannel*)> fn) {
+        this->client_->set_frist_msg_fn(fn); 
     }
  
 protected:
