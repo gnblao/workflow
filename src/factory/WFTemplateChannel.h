@@ -14,8 +14,10 @@
 #include "WFChannel.h"
 #include "WFChannelMsg.h"
 #include "Workflow.h"
+#include <atomic>
 #include <cstddef>
 #include <functional>
+#include <mutex>
 
 /**********TemlateChannel impl**********/
 //using ChannelMsg = WFChannelMsg<protocolMsg>;
@@ -36,22 +38,42 @@ public:
     
     virtual int send(void *buf, size_t size) {
         int ret = 0;
-        //if (!this->open())
-        //    return -1;
+        ChannelMsg *task = this->thread_safe_new_msg_session();
+        if (!task)
+            return -1;
 
-        auto *task = new ChannelMsg(this->channel);
         auto *msg = task->get_msg();
-        ret = msg->append_fill((char *)buf, size);
+        ret = msg->append_fill(buf, size);
         
         if (ret >= 0)
-            return this->send_task_msg(task);
+            this->send_task_msg(static_cast<ChannelMsg*>(task));
+        else
+            delete task;
         
-        delete task;
         return ret;
     }
-
+    
     virtual bool open() {
         return this->channel->is_open();
+    }
+
+protected:
+    virtual ChannelMsg* thread_safe_new_msg_session() {
+        // Atomic this->ref protects new(ChannelMsg) successfully
+        // in the active sending scenario
+        std::lock_guard<std::recursive_mutex> lck(this->channel->write_mutex);
+        if (!this->open())
+            return nullptr;
+        
+        if (this->channel->incref() <= 0) {
+            this->channel->decref(1);
+            return nullptr;
+        }
+
+        auto task = new ChannelMsg(this->channel);
+        this->channel->decref();
+        
+        return task;
     }
 
 
@@ -92,26 +114,22 @@ public:
         return session;
     }
     
-    void set_frist_msg_fill_fn(std::function<int (protocolMsg*)> fn) {
-        this->frist_msg_fill_fn = fn;
+    void set_frist_msg_fn(std::function<ChannelMsg* (WFChannel *)> fn) {
+        this->frist_msg_fn = fn;
     }
 
 private:
-    std::function<int (protocolMsg*)> frist_msg_fill_fn;
+    // new ChannelMsg is safe in there
+    std::function<ChannelMsg* (WFChannel*)> frist_msg_fn;
 
 protected:
     int send_frist_msg() {
-        int ret;
-        if (this->frist_msg_fill_fn) {
-            auto *task = new ChannelMsg(this);
-            auto *msg = task->get_msg(); 
-            
-            ret = this->frist_msg_fill_fn(msg);
-            if (ret >= 0)
-                return this->send_task_msg(task, WFC_MSG_STATE_OUT_LIST);
-            
-            delete task;
-            return ret;
+        if (this->frist_msg_fn) {
+            ChannelMsg *task = this->frist_msg_fn(this);
+            if (!task)
+                return -1;
+
+            return this->send_task_msg(task, WFC_MSG_STATE_OUT_LIST);
         }
         
         return 0;
@@ -130,14 +148,14 @@ protected:
 
 public:
     explicit WFTemplateChannelClient(channel_callback_t cb = nullptr)
-        : WFChannelClient(0, std::move(cb)), WFTemplateChannel<protocolMsg>(this), frist_msg_fill_fn(nullptr) {
+        : WFChannelClient(0, std::move(cb)), WFTemplateChannel<protocolMsg>(this), frist_msg_fn(nullptr) {
         
         this->set_keep_alive(-1);
         this->set_receive_timeout(-1);
         this->set_send_timeout(-1);
         
-        //connect frist send data
-        this->set_prepare(
+        //connect frist send data only once
+        this->set_prepare_once(
             std::bind(&WFTemplateChannelClient::send_frist_msg, this));
     }
 
@@ -160,11 +178,14 @@ public:
         
         return session;
     }
-    
+  
 public:
     explicit WFTemplateChannelServer(CommService *service, CommScheduler *scheduler)
         : WFChannelServer(scheduler, service), WFTemplateChannel<protocolMsg, ChannelMsg>(this) {
-
+    
+        this->set_keep_alive(-1);
+        this->set_receive_timeout(-1);
+        this->set_send_timeout(-1);
     }
 
     virtual ~WFTemplateChannelServer(){}
