@@ -3,12 +3,16 @@
 
 Channel
 =
+基于Sogou/Workflow扩展的全双工通讯方案
+
 <font size=50 color=red>[关于Channel](docs/about-channel.md)</font>
 
 
 
+<details> <summary>Sogou C++ Workflow</summary>
 
 ## Sogou C++ Workflow
+
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
 [![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/) 
@@ -193,3 +197,4 @@ You may check the [FAQ](https://github.com/sogou/workflow/issues/406) and [issue
 
 You are very welcome to send the problems you encounter in use to [issues](https://github.com/sogou/workflow/issues), and we will answer them as soon as possible. At the same time, more issues will also help new users.
 
+</details>
