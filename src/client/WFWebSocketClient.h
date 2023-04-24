@@ -23,46 +23,63 @@ public:
           client_(new WebSocketChannelClient(
               std::bind(&WFWebSocketClient::channel_done_callback, this, std::placeholders::_1)))
     {
+        assert(client_);
         URIParser::parse(uri, this->uri_);
         this->client_->init(this->uri_);
         this->client_->set_keep_alive(-1);
+        this->client_->set_receive_timeout(-1);
+        this->client_->set_send_timeout(-1);
         this->client_->start();
     }
 
     virtual ~WFWebSocketClient()
     {
-        if (this->client_)
-            this->client_->shutdown();
-
+        {
+            std::unique_lock<std::mutex> lck(this->mutex_);
+            if (this->client_)
+                this->client_->shutdown();
+        }
+        
         if (this->wg_)
         {
             this->wg_->wait();
             delete this->wg_;
         }
+
+        if (this->client_)
+            delete this->client_;
     }
 
-    bool send_text(const char *data, size_t size)
+    int send_text(const char *data, size_t size)
     {
-        if (!this->open())
-            return false;
-
-        return !this->client_->send_text(data, size);
+        std::unique_lock<std::mutex> lck(this->mutex_);
+        if(this->client_)
+            return this->client_->send_text(data, size);
+        return false;
     }
 
     void set_auto_gen_mkey(bool b) {
-        this->client_->set_auto_gen_mkey(b);
+        std::unique_lock<std::mutex> lck(this->mutex_);
+        if(this->client_)
+            this->client_->set_auto_gen_mkey(b);
     }
     
     void set_ping_interval(int millisecond) {
-        this->client_->set_ping_interval(millisecond);
+        std::unique_lock<std::mutex> lck(this->mutex_);
+        if(this->client_)
+            this->client_->set_ping_interval(millisecond);
     }
     
     void set_process_binary_fn(std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> fn) {
-        this->client_->set_process_binary_fn(fn); 
+        std::unique_lock<std::mutex> lck(this->mutex_);
+        if(this->client_)
+            this->client_->set_process_binary_fn(fn); 
     }
     
     void set_process_text_fn(std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> fn) {
-        this->client_->set_process_text_fn(fn); 
+        std::unique_lock<std::mutex> lck(this->mutex_);
+        if(this->client_)
+            this->client_->set_process_text_fn(fn); 
     }
 
 protected:
@@ -71,19 +88,15 @@ protected:
         std::unique_lock<std::mutex> lck(this->mutex_);
         this->client_ = nullptr;
         this->wg_->done();
-
-        auto wg   = this->wg_;
-        this->wg_ = nullptr;
-        delete wg;
     }
 
     bool open()
     {
-        if (!this->client_ && !this->retry_)
-            return false;
+        //if (!this->client_ && !this->retry_)
+        //    return false;
 
-        if (!this->client_)
-            this->reset();
+        //if (!this->client_)
+        //    this->reset();
 
         std::unique_lock<std::mutex> lck(this->mutex_);
         if (this->client_)
@@ -95,13 +108,14 @@ protected:
 private:
     bool reset()
     {
-        std::unique_lock<std::mutex> lck(this->mutex_);
-        this->client_ = new WebSocketChannelClient(
-            std::bind(&WFWebSocketClient::channel_done_callback, this, std::placeholders::_1));
-        this->wg_ = new WFFacilities::WaitGroup(1);
-        this->client_->init(this->uri_);
-        this->client_->set_keep_alive(-1);
-        this->client_->start();
+        (void)this->retry_;
+        //std::unique_lock<std::mutex> lck(this->mutex_);
+        //this->client_ = new WebSocketChannelClient(
+        //    std::bind(&WFWebSocketClient::channel_done_callback, this, std::placeholders::_1));
+        //this->wg_ = new WFFacilities::WaitGroup(1);
+        //this->client_->init(this->uri_);
+        //this->client_->set_keep_alive(-1);
+        //this->client_->start();
         return true;
     }
 
