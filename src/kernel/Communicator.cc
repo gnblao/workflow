@@ -1015,13 +1015,14 @@ void Communicator::handle_connect_result(struct poller_result *res) {
                     session->timeout = -1;
                     session->begin_time.tv_nsec = -1;
                 }
+
             } else if (ret > 0)
-                timeout = Communicator::first_timeout_send(session);
-                //break;
+                //timeout = Communicator::first_timeout_send(session);
+                break;
         } else
             ret = -1;
-
-        if (ret >= 0) {
+        
+        if (ret == 0 && timeout != 0) { 
             if (mpoller_add(&res->data, timeout, this->mpoller) >= 0) {
                 if (this->stop_flag)
                     mpoller_del(res->data.fd, this->mpoller);
