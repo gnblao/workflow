@@ -11,7 +11,7 @@ https://github.com/gnblao/workflow/tree/channel
 [编译和安装](https://github.com/sogou/workflow#readme)
 
 ## 现有stream的两个dome  
-### stream：
+### server：
 * [/tutorial/tutorial-23-stream_srv.cc](/tutorial/tutorial-23-stream_srv.cc)
  
 ~~~cpp
