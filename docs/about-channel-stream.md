@@ -12,7 +12,7 @@ https://github.com/gnblao/workflow/tree/channel
 
 ## 现有stream的两个dome  
 ### stream：
-* /tutorial/tutorial-23-stream_srv.cc
+* [/tutorial/tutorial-23-stream_srv.cc](/tutorial/tutorial-23-stream_srv.cc)
  
 ~~~cpp
 static WFFacilities::WaitGroup wait_group(1);
@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
 ~~~
 
 ### client：
-* /tutorial/tutorial-23-stream_srv.cc
+* [/tutorial/tutorial-23-stream_cli.cc](/tutorial/tutorial-23-stream_cli.cc)
  
 ~~~cpp
 using ChannelMsg = WFChannelMsg<protocol::StreamMessage>;
