@@ -4,6 +4,9 @@
 
 [tutorial-14-websocket_cli.cc](/tutorial/tutorial-14-websocket_cli.cc)
 
+[关于websocket](about-websocket_cli.md)
+
+<details> <summary> 遗弃部分</summary>
 # 关于websocket_cli
 
 这是一个可以收发**WebSocket**协议的client，也是第一个在**Workflow**上实现的双工通信协议。
@@ -242,3 +245,5 @@ struct WFWebSocketParams
 [**收消息**]
 
 用于收消息的``process()``函数是保证被按收包顺序调起的，且保证前一个消息的process执行完毕，下一个process才会调起，因此用户无需担心收消息的顺序问题。
+
+</details>
