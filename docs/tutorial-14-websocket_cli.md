@@ -4,7 +4,7 @@
 
 [tutorial-14-websocket_cli.cc](/tutorial/tutorial-14-websocket_cli.cc)
 
-[关于websocket](about-websocket_cli.md)
+[关于websocket](about-websocket.md)
 
 <details> <summary> 遗弃部分</summary>
 # 关于websocket_cli
