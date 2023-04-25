@@ -1,4 +1,4 @@
-# stream协议（tcp[tcp+ssl]原始数据流/）
+# stream协议（tcp[tcp+ssl]原始数据流）
 这是基于channel实现的stream协议
 
 git：
