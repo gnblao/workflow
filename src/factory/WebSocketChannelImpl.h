@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <functional>
 #include <iostream>
+#include <mutex>
 #include <random>
 #include <type_traits>
 #include <utility>
@@ -112,7 +113,11 @@ public:
     virtual int process_header_req(protocol::HttpRequest *msg) { return 0; }
 
     void create_ping_timer() {
-       if (this->channel->incref() > 0){
+        std::lock_guard<std::recursive_mutex> lck(this->channel->write_mutex);
+        if (!open())
+            return;
+
+        if (this->channel->incref() > 0){
            this->ping_timer = WFTaskFactory::create_timer_task(
                    this->ping_interval * 1000,
                    std::bind(&WebSocketChannel::timer_callback, this, std::placeholders::_1));
@@ -120,8 +125,8 @@ public:
            this->channel->set_termination_cb([this](){this->ping_timer->unsleep();});
            this->ping_timer->start();
        } else {
-           // bug!!!!!!!!!!!
-           //this->channel->decref();
+           //std::cout << "This shouldn't happen, and if it does it's a bug!!!!" << std::endl;
+           //this->channel->decref(1);
        }
     }
 

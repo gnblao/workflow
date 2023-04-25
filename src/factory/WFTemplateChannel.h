@@ -24,12 +24,15 @@
 
 template<typename protocolMsg, typename ChannelMsg=WFChannelMsg<protocolMsg>>
 class WFTemplateChannel {
+private:
+    static_assert(std::is_base_of<protocol::ProtocolMessage, protocolMsg>::value,
+                  "protocol::ProtocolMessage must is base of protocolMsg");
 public:
-    int send_task_msg(ChannelMsg *task, int flag = WFC_MSG_STATE_OUT, protocolMsg *in = nullptr) {
+    int send_task_msg(MsgTask *task, int flag = WFC_MSG_STATE_OUT, protocolMsg *in = nullptr) {
         task->set_state(flag);
         
         if (in)
-            series_of(dynamic_cast<ChannelMsg *>(in->session))->push_back(task);
+            series_of(dynamic_cast<MsgTask *>(in->session))->push_back(task);
         else
             task->start();
         
@@ -38,7 +41,9 @@ public:
     
     virtual int send(void *buf, size_t size) {
         int ret = 0;
-        ChannelMsg *task = this->thread_safe_new_msg_session();
+        auto *task = this->thread_safe_new_msg(
+                [](WFChannel* ch) {return new ChannelMsg(ch);});
+
         if (!task)
             return -1;
 
@@ -46,7 +51,7 @@ public:
         ret = msg->append_fill(buf, size);
         
         if (ret >= 0)
-            this->send_task_msg(static_cast<ChannelMsg*>(task));
+            this->send_task_msg(static_cast<MsgTask*>(task));
         else
             delete task;
         
@@ -58,19 +63,24 @@ public:
     }
 
 protected:
-    virtual ChannelMsg* thread_safe_new_msg_session() {
+    virtual MsgSession* thread_safe_new_msg(std::function<MsgSession*(WFChannel*)> fn) {
         // Atomic this->ref protects new(ChannelMsg) successfully
         // in the active sending scenario
-        std::lock_guard<std::recursive_mutex> lck(this->channel->write_mutex);
-        if (!this->open())
-            return nullptr;
-        
-        if (this->channel->incref() <= 0) {
-            this->channel->decref(1);
-            return nullptr;
-        }
+        {
+            std::lock_guard<std::recursive_mutex> lck(this->channel->write_mutex);
+            if (!this->open())
+                return nullptr;
 
-        auto task = new ChannelMsg(this->channel);
+            if (this->channel->incref() <= 0) {
+                //std::cout << "This shouldn't happen, and if it does it's a bug!!!!" << std::endl;
+                this->channel->decref(1);
+                return nullptr;
+            }
+        }
+    
+        // now is safe new
+        //auto task = new ChannelMsg(this->channel);
+        auto task = fn(this->channel);
         this->channel->decref();
         
         return task;

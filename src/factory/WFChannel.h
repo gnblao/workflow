@@ -46,6 +46,17 @@ public:
     {
     }
     virtual ~MsgSession(){};
+
+private:
+    virtual CommMessageOut *message_out() final {
+        errno = ENOSYS;
+        return NULL;
+    }
+
+    virtual CommMessageIn *message_in()  final {
+        errno = ENOSYS;
+        return NULL;
+    }
 };
 
 class WFChannel
@@ -90,7 +101,6 @@ private:
     static_assert(std::is_base_of<ChannelBase, ChannelEntry>::value,
                   "WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>> must is "
                   "base of ChannelEntry");
-
 protected:
     using channel_callback_t = std::function<void(ChannelBase *)>;
 
@@ -126,20 +136,24 @@ protected:
 
     virtual CommMessageOut *message_out()
     {
-        CommMessageOut *msg;
+        CommMessageOut *msg = nullptr;
 
-        std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
+        //std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
+        if (!this->write_mutex.try_lock())
+            return msg;
+
         if (!this->is_open())
-            return nullptr;
+            goto unlock_out;     
         
         if (this->write_list.size())
         {
             msg = this->write_list.front();
             this->write_list.pop_front();
-            return msg;
         }
 
-        return nullptr;
+unlock_out:
+        this->write_mutex.unlock();
+        return msg;
     }
 
 private:
@@ -151,6 +165,7 @@ private:
     
 public:
     // virtual MsgSession *new_msg_session() {return nullptr;};
+
     long long get_msg_seq()
     {
         return this->msg_seq;
@@ -164,7 +179,7 @@ public:
     virtual int shutdown()
     {
         std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
-        if (this->stop_flag.exchange(true)) 
+        if (this->stop_flag) 
             return -1;
         
         this->get_scheduler()->channel_shutdown(this);
@@ -174,8 +189,14 @@ public:
     virtual bool is_open()
     {
         CommConnection *conn;
+        
+        // for performance
         if  (this->stop_flag)
             return false;;
+        
+        std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
+        if (this->stop_flag) 
+            return false;
         
         conn = this->get_connection();
         if (!conn || !conn->entry)
@@ -188,7 +209,7 @@ public:
         default:
             return false;
         }
-
+        
         return false;
     };
 
@@ -236,12 +257,9 @@ private:
     std::list<MSG *> out_list;
     long long        out_list_seq = 0;
 
+    //std::recursive_mutex       write_mutex;
     std::list<MSG *> write_list;
    
-protected:
-    //std::mutex       write_mutex;
-    //std::recursive_mutex       write_mutex;
-
 public:
     virtual int process_msg(MSG *msg)
     {
@@ -328,31 +346,24 @@ public:
     {
         int ret;
 
+        std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
+        this->write_list.push_back(out);
+
+        if (flag == WFC_MSG_STATE_OUT_LIST)
+            return 0;
+
+        if (!this->is_open()) {
+            return -1;
+        }
+
+        ret = this->get_scheduler()->channel_send_one(this);
+        if (ret < 0)
         {
-            std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
-            this->write_list.push_back(out);
-
-            if (flag == WFC_MSG_STATE_OUT_LIST)
-                return 0;
+            this->shutdown();
         }
 
-        if (this->write_mutex.try_lock()) {
-            if (!this->is_open()) {
-                this->write_mutex.unlock();
-                return -1;
-            }
+        return ret;
 
-            ret = this->get_scheduler()->channel_send_one(this);
-            if (ret < 0)
-            {
-                this->shutdown();
-            }
-            
-            this->write_mutex.unlock();
-            return ret;
-        }
-        
-        return 0;
     }
 
     virtual int msg_out(MSG *out)
@@ -400,7 +411,9 @@ protected:
     virtual void delete_this(void *t)
     {
         std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
-        this->stop_flag.exchange(true);
+        if(this->stop_flag.exchange(true))
+            return;
+        
         CommConnection **conn = this->get_conn();
         *conn = nullptr;
 
@@ -413,6 +426,7 @@ protected:
                 in->session = nullptr;
             }
             // delete in;
+            *(this->get_in()) = nullptr;
         }
        
         if (this->termination_cb)
@@ -462,15 +476,17 @@ protected:
             delete x;
         }
 
-        // CommMessageIn *in = this->get_message_in();
-        // if (in) {
-        //     if (in->session) {
-        //         delete in->session;
-        //         in->session = nullptr;
-        //     }
-        //     //delete in;
-        //     *(this->get_in()) = nullptr;
-        // }
+        /* move to  delete_this
+        CommMessageIn *in = this->get_message_in();
+        if (in) {
+            if (in->session) {
+                delete in->session;
+                in->session = nullptr;
+            }
+            // delete in;
+            *(this->get_in()) = nullptr;
+        }
+        */
 
         CommMessageOut *out = this->get_message_out();
         if (out)
