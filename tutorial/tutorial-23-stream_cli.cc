@@ -16,7 +16,7 @@
 #include <string>
 
 using ChannelMsg = WFChannelMsg<protocol::StreamMessage>;
-ChannelMsg * frist_msg_fill(WFChannel *channel) {
+ChannelMsg * frist_msg_fn(WFChannel *channel) {
     size_t len;
     std::string s={"gdhjahgjgasjhfdhasfghasfhsaasgas"};
     
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
 
     WFStreamClient client(argv[1]);
     client.set_process_fn(process_msg);
-    client.set_frist_msg_fn(frist_msg_fill);
+    client.set_frist_msg_fn(frist_msg_fn);
 
     std::string s125 =
         "111111111111111111111111111111111111111111111111111111111111111111111"
