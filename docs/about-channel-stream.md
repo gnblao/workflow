@@ -15,25 +15,54 @@ https://github.com/gnblao/workflow/tree/channel
 * [/tutorial/tutorial-23-stream_srv.cc](/tutorial/tutorial-23-stream_srv.cc)
  
 ~~~cpp
-static WFFacilities::WaitGroup wait_group(1);
+int process_text(WFChannel *ch, protocol::StreamMessage *in) {
+    std::cout << "-----data len:" << in->get_parser()->size << std::endl;
 
-void sig_handler(int signo) { wait_group.done(); }
-
-void process_text(WebSocketChannel *ws, protocol::WebSocketFrame *in) {
-    std::cout << "-----data len:" << in->get_parser()->payload_length << std::endl;
-
-    ws->send_frame(
-        (char *)in->get_parser()->payload_data, 
-        in->get_parser()->payload_length,
-        in->get_parser()->payload_length,
-        WebSocketFrameText);
-	
-    //ws->send_text(buf, len);
+    auto *channel = static_cast<StreamChannelServer*>(ch);
+    return channel->send(
+        (char *)in->get_parser()->data, in->get_parser()->size);
 }
 
 
 int main(int argc, char *argv[]) {
     unsigned short port;
+    char *cert_file;
+    char *key_file;
+    int ret;
+
+    if (argc != 2 && argc != 4) {
+        fprintf(stderr, "USAGE: %s <port>\n", argv[0]);
+        fprintf(stderr, "ssl : %s <port> <cert_file> <key_file>\n", argv[0]);
+        exit(1);
+    }
+
+    port = atoi(argv[1]);
+
+    signal(SIGINT, sig_handler);
+
+    WFStreamServer server;
+    server.set_ping_interval(20*1000);
+    server.set_process_msg_fn(process_text);
+
+    if (argc == 4) {
+        cert_file = argv[2];
+        key_file = argv[3];
+
+        ret = server.start(port, cert_file, key_file);
+    } else {
+        ret = server.start(port);
+    }
+
+    if (ret == 0) {
+        wait_group.wait();
+        server.stop();
+    } else {
+        perror("Cannot start server");
+        exit(1);
+    }
+
+    return 0;
+}
 ~~~
 
 ### client：
