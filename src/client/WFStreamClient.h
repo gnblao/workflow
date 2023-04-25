@@ -15,7 +15,7 @@
 #define _SRC_CLIENT_WFSTREAMCLIENT_H_
 
 
-typedef WFTemplateChannelClient<protocol::StreamMessage, WFChannelMsg<protocol::StreamMessage>>  StreamChannelClient ;
+using StreamChannelClient = WFTemplateChannelClient<protocol::StreamMessage, WFChannelMsg<protocol::StreamMessage>>; 
 
 class WFStreamClient
 {
