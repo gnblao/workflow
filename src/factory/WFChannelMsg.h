@@ -16,11 +16,8 @@
 #include "WFChannel.h"
 #include "Workflow.h"
 
-template <typename MSG> 
-class WFChannelMsgBase : public SubTask, public MsgSession {
-    static_assert(std::is_base_of<protocol::ProtocolMessage, MSG>::value,
-                  "ProtocolMessage must is base of MSG");
-
+class MsgTask : public SubTask, public MsgSession {
+using MSG = protocol::ProtocolMessage;
 public:
     void start() {
         assert(!series_of(this));
@@ -33,7 +30,7 @@ public:
     }
 
 public:
-    explicit WFChannelMsgBase(WFChannel *channel, MSG *msg) : state(WFC_MSG_STATE_OUT), error(0) {
+    explicit MsgTask(WFChannel *channel, MSG *msg) : state(WFC_MSG_STATE_OUT), error(0) {
         assert(channel);
         assert(msg);
         this->msg = msg;
@@ -46,14 +43,12 @@ public:
         }
     }
     
-    explicit WFChannelMsgBase(WFChannel *channel)
-        : WFChannelMsgBase(channel, new MSG) {}
-    
-    virtual ~WFChannelMsgBase() {
+    virtual ~MsgTask() {
         if (this->channel)
             this->channel->decref();
         
-        delete this->msg;
+        if (this->msg)
+            delete this->msg;
     }
 
     WFChannel *get_channel() const { return this->channel; }
@@ -62,9 +57,8 @@ public:
     virtual int get_state() const { return this->state; }
     virtual void set_state(int state) { this->state = state; }
 
-    virtual MSG *get_msg() { return this->msg; }
-
 protected:
+    virtual MSG *get_msg() { return this->msg; }
     virtual MSG *pick_msg() {
         MSG *m = this->msg;
 
@@ -82,40 +76,33 @@ private:
 
 protected:
     WFChannel *channel;
-
-private:
-    virtual CommMessageOut *message_out() final {
-        errno = ENOSYS;
-        return NULL;
-    }
-
-    virtual CommMessageIn *message_in()  final {
-        errno = ENOSYS;
-        return NULL;
-    }
 };
 
-template <typename MSG> class WFChannelMsg : public WFChannelMsgBase<MSG> {
+template <typename MSG_ENTRY> 
+class WFChannelMsg : public MsgTask {
 public:
-    std::function<void(WFChannelMsg<MSG> *)> process;
-    std::function<void(WFChannelMsg<MSG> *)> callback;
-
-    void set_callback(std::function<void(WFChannelMsg<MSG> *)> cb) {
+    void set_callback(std::function<void(WFChannelMsg<MSG_ENTRY> *)> cb) {
         this->callback = std::move(cb);
     }
+    
+    MSG_ENTRY* get_msg() { return static_cast<MSG_ENTRY*>(this->::MsgTask::get_msg());}
+    MSG_ENTRY* pick_msg() { return static_cast<MSG_ENTRY*>(this->::MsgTask::pick_msg());}
 
-private:
-    std::function<void(WFChannelMsg<MSG> *)> inner_callback;
-
-    void set_inner_callback(std::function<void(WFChannelMsg<MSG> *)> cb) {
+protected:
+    void set_inner_callback(std::function<void(WFChannelMsg<MSG_ENTRY> *)> cb) {
         this->inner_callback = std::move(cb);
     }
+private:
+    std::function<void(WFChannelMsg<MSG_ENTRY> *)> inner_callback;
+    std::function<void(WFChannelMsg<MSG_ENTRY> *)> process;
+    std::function<void(WFChannelMsg<MSG_ENTRY> *)> callback;
+
 private:
     virtual void eat_msg() {
         int ret = -1;
         int state;
         auto channel = this->get_channel();
-        MSG *msg = this->pick_msg();
+        MSG_ENTRY *msg = this->pick_msg();
 
         state = this->get_state();
         switch (state) {
@@ -165,24 +152,24 @@ protected:
             if (pool) {
                 auto cond = pool->get(this);
                 if (cond) {
-                    this->set_inner_callback([pool](WFChannelMsg<MSG> *){ pool->post(nullptr);});
+                    this->set_inner_callback([pool](WFChannelMsg<MSG_ENTRY> *){ pool->post(nullptr);});
                     cond->start();
                 }
             }
         } else {
-            std::cout << "bug: WFChannelMsg<MSG> handle state must is "
+            std::cout << "bug: WFChannelMsg<MSG_ENTRY> handle state must is "
                          "WFT_STATE_SUCCESS/WFT_STATE_TOREPLY other is Bug!!!"
                       << std::endl;
         }
     }
 
 public:
-    WFChannelMsg(WFChannel *channel, std::function<void(WFChannelMsg<MSG> *)> proc = nullptr)
-        : WFChannelMsgBase<MSG>(channel), process(std::move(proc)) {}
+    WFChannelMsg(WFChannel *channel, std::function<void(WFChannelMsg<MSG_ENTRY> *)> proc = nullptr)
+        : WFChannelMsg<MSG_ENTRY>(channel, new MSG_ENTRY, std::move(proc)) {}
 
-    WFChannelMsg(WFChannel *channel, MSG *msg,
-                 std::function<void(WFChannelMsg<MSG> *)> proc = nullptr)
-        : WFChannelMsgBase<MSG>(channel, msg), process(std::move(proc)) {}
+    WFChannelMsg(WFChannel *channel, MSG_ENTRY *msg,
+                 std::function<void(WFChannelMsg<MSG_ENTRY> *)> proc = nullptr)
+        : MsgTask(channel, msg), process(std::move(proc)) {}
 
     virtual ~WFChannelMsg() {}
 };
