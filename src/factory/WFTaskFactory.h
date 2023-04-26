@@ -33,7 +33,6 @@
 #include "DnsMessage.h"
 #include "Workflow.h"
 #include "WFTask.h"
-#include "WFCondTask.h"
 #include "WFGraphTask.h"
 #include "EndpointParams.h"
 #include "WFAlgoTaskFactory.h"

@@ -17,8 +17,6 @@
 #include "SubTask.h"
 #include "WFChannel.h"
 #include "WFChannelMsg.h"
-#include "WFCondTaskFactory.h"
-#include "WFCondition.h"
 #include "WFGlobal.h"
 #include "WFNameService.h"
 #include "WFTask.h"

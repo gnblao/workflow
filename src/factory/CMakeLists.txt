@@ -6,9 +6,6 @@ set(SRC
 	DnsTaskImpl.cc
 	Workflow.cc
 	WFTaskFactory.cc
-	WFCondTaskFactory.cc
-	WFCondTask.cc
-	WFResourcePool.cc
 	HttpTaskImpl.cc
 	WFResourcePool.cc
 	WFMessageQueue.cc

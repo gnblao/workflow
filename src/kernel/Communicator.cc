@@ -116,40 +116,6 @@ static int __create_ssl(SSL_CTX *ssl_ctx, struct CommConnEntry *entry) {
     return -1;
 }
 
-#ifndef IOV_MAX
-#ifdef UIO_MAXIOV
-#define IOV_MAX UIO_MAXIOV
-#else
-#define IOV_MAX 1024
-#endif
-#endif
-
-static int __send_vectors(struct iovec vectors[], int cnt, struct CommConnEntry *entry) {
-    ssize_t n;
-    int i;
-
-    while (cnt > 0) {
-        n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
-        if (n < 0)
-            return errno == EAGAIN ? cnt : -1;
-
-        for (i = 0; i < cnt; i++) {
-            if ((size_t)n >= vectors[i].iov_len)
-                n -= vectors[i].iov_len;
-            else {
-                vectors[i].iov_base = (char *)vectors[i].iov_base + n;
-                vectors[i].iov_len -= n;
-                break;
-            }
-        }
-
-        vectors += i;
-        cnt -= i;
-    }
-
-    return 0;
-}
-
 #define SSL_WRITE_BUFSIZE 8192
 
 static int __ssl_writev(SSL *ssl, const struct iovec vectors[], int cnt) {
@@ -422,6 +388,44 @@ void Communicator::shutdown_service(CommService *service) {
 #define IOV_MAX 1024
 #endif
 #endif
+
+static int __send_vectors(struct iovec vectors[], int cnt, struct CommConnEntry *entry) {
+    ssize_t n;
+    int i;
+
+    while (cnt > 0) {
+        if (!entry->ssl)
+        {
+            n = writev(entry->sockfd, vectors, cnt <= IOV_MAX ? cnt : IOV_MAX);
+            if (n < 0)
+                return errno == EAGAIN ? cnt : -1;
+        }
+        else if (vectors->iov_len > 0)
+        {
+            n = __ssl_writev(entry->ssl, vectors, cnt);
+            if (n <= 0)
+                return cnt;
+        }
+        else
+            n = 0;
+
+        for (i = 0; i < cnt; i++) {
+            if ((size_t)n >= vectors[i].iov_len)
+                n -= vectors[i].iov_len;
+            else {
+                vectors[i].iov_base = (char *)vectors[i].iov_base + n;
+                vectors[i].iov_len -= n;
+                break;
+            }
+        }
+
+        vectors += i;
+        cnt -= i;
+    }
+
+    return 0;
+}
+
 
 int Communicator::send_message_sync(struct iovec vectors[], int cnt, struct CommConnEntry *entry) {
     CommSession *session = entry->session;
