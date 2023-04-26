@@ -28,37 +28,49 @@
 class SleepRequest : public SubTask, public SleepSession
 {
 public:
-	SleepRequest(CommScheduler *scheduler)
-	{
-		this->scheduler = scheduler;
-	}
+    SleepRequest(CommScheduler *scheduler)
+    {
+        this->scheduler = scheduler;
+        this->disrupted = false;
+    }
 
 public:
-	virtual void dispatch()
-	{
-		if (this->scheduler->sleep(this) < 0)
+    virtual void dispatch()
+    {
+        if (this->scheduler->sleep(this) < 0)
             this->handle(SS_STATE_ERROR, errno);
     }
 
-    
     virtual void unsleep()
     {
-        this->scheduler->unsleep(this);
+        if (!this->disrupted.exchange(true)) {
+            this->scheduler->unsleep(this);
+
+            this->state = SS_STATE_DISRUPTED;
+            this->error = 0;
+            this->subtask_done();
+        }
     }
-protected:
-	int state;
-	int error;
-   
-protected:
-	CommScheduler *scheduler;
 
 protected:
-	virtual void handle(int state, int error)
-	{
-		this->state = state;
-		this->error = error;
-		this->subtask_done();
-	}
+    int state;
+    int error;
+
+private:
+    std::atomic<bool> disrupted;
+
+protected:
+    CommScheduler *scheduler;
+
+protected:
+    virtual void handle(int state, int error)
+    {
+        if (!this->disrupted.exchange(true)) {
+            this->state = state;
+            this->error = error;
+            this->subtask_done();
+        }
+    }
 };
 
 #endif
