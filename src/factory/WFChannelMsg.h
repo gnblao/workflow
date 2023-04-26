@@ -10,10 +10,13 @@
 
 #include <cassert>
 #include <functional>
+#include <iostream>
 
 #include "Communicator.h"
 #include "ProtocolMessage.h"
+#include "SubTask.h"
 #include "WFChannel.h"
+#include "WFTask.h"
 #include "Workflow.h"
 
 class MsgTask : public SubTask, public MsgSession {
@@ -38,7 +41,8 @@ public:
         if(channel->incref() > 0) {
             this->channel = channel;
         } else { 
-            state = WFC_MSG_STATE_ERROR;
+            std::cout << "The context of the new object (WFChannelMsg<XXX>) is incorrect !!!! "
+                      << "please consider using the safe_new_msg_task function" << std::endl;
             this->channel = nullptr;
         }
     }
@@ -52,7 +56,7 @@ public:
     }
 
     WFChannel *get_channel() const { return this->channel; }
-    void set_channel(WFChannel *channel) { this->channel = channel; }
+    //void set_channel(WFChannel *channel) { this->channel = channel; }
 
     virtual int get_state() const { return this->state; }
     virtual void set_state(int state) { this->state = state; }
@@ -107,7 +111,7 @@ private:
         state = this->get_state();
         switch (state) {
         case WFC_MSG_STATE_IN:
-            ret = channel->fanout_msg_in(msg, msg->get_seq());
+            ret = channel->fanout_msg_in(msg);
             break;
         case WFC_MSG_STATE_OUT_LIST:
             ret = channel->msg_out_list(msg);
@@ -115,33 +119,56 @@ private:
         case WFC_MSG_STATE_OUT:
             ret = channel->msg_out(msg);
             break;
+        default:
+            //ret = 0;
+            break;
         }
 
         if (ret < 0) {
             this->set_state(WFC_MSG_STATE_ERROR);
             delete msg;
+        } else {
+            this->set_state(WFC_MSG_STATE_SUCCEED);
         }
     }
 
 protected:
     virtual SubTask *done() {
         SeriesWork *series = series_of(this);
-
-        if (this->callback)
-            this->callback(this);
         
-        if (this->inner_callback)
-            this->inner_callback(this);
+        if (this->get_state() == WFC_MSG_STATE_DONE) {
+            delete this;
+        } else {
+            if (this->callback)
+                this->callback(this);
 
-        delete this;
+            if (this->inner_callback)
+                this->inner_callback(this);
+            
+            if (this->get_state() == WFC_MSG_STATE_DELAYED) {
+                this->set_state(WFC_MSG_STATE_DONE);
+            } else
+                delete this;
+        }
+        
         return series->pop();
     }
 
     virtual void dispatch() {
-        if (this->process)
-            this->process(this);
+        if (this->get_state() > WFC_MSG_STATE_SUCCEED) {
+            if (this->process)
+                this->process(this);
 
-        this->eat_msg();
+            this->eat_msg();
+        }
+            
+        if (this->get_state() == WFC_MSG_STATE_SUCCEED) {
+            this->set_state(WFC_MSG_STATE_DELAYED);
+
+            //series_of(this)->push_front(this);
+            series_of(this)->set_last_task(this);
+        }
+
         this->subtask_done();
     }
 
@@ -158,7 +185,7 @@ protected:
             }
         } else {
             std::cout << "bug: WFChannelMsg<MSG_ENTRY> handle state must is "
-                         "WFT_STATE_SUCCESS/WFT_STATE_TOREPLY other is Bug!!!"
+                         "WFT_STATE_SUCCESS/WFT_STATE_TOREPLY, other is Bug!!!"
                       << std::endl;
         }
     }

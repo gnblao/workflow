@@ -41,7 +41,7 @@ public:
     
     virtual int send(void *buf, size_t size) {
         int ret = 0;
-        auto *task = this->thread_safe_new_msg(
+        auto *task = this->safe_new_msg_task(
                 [](WFChannel* ch) {return new ChannelMsg(ch);});
 
         if (!task)
@@ -63,8 +63,8 @@ public:
     }
 
 protected:
-    virtual MsgSession* thread_safe_new_msg(std::function<MsgSession*(WFChannel*)> fn) {
-        // Atomic this->ref protects new(ChannelMsg) successfully
+    virtual MsgSession* safe_new_msg_task(std::function<MsgSession*(WFChannel*)> fn) {
+        // Atomic this->ref to protect new(ChannelMsg) ctx 
         // in the active sending scenario
         {
             std::lock_guard<std::recursive_mutex> lck(this->channel->write_mutex);

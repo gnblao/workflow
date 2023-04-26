@@ -28,11 +28,13 @@
 
 enum
 {
+    WFC_MSG_STATE_DONE = -3,
+    WFC_MSG_STATE_DELAYED = -2,
     WFC_MSG_STATE_ERROR = -1,
-    WFC_MSG_STATE_UNDEFINED,
-    WFC_MSG_STATE_IN,
-    WFC_MSG_STATE_OUT,
-    WFC_MSG_STATE_OUT_LIST,
+    WFC_MSG_STATE_SUCCEED = 0,
+    WFC_MSG_STATE_IN = 1,
+    WFC_MSG_STATE_OUT = 2,
+    WFC_MSG_STATE_OUT_LIST = 3,
 };
 
 class MsgSession : public CommSession
@@ -81,8 +83,8 @@ public:
     virtual long long get_msg_seq() = 0; /*for in msg only*/
     virtual long long get_req_seq() = 0; /*for req only*/
 
-    virtual int fanout_msg_in(MSG *in, long long seq)   = 0;
-    virtual int fanout_msg_out(MSG *out, long long seq) = 0;
+    virtual int fanout_msg_in(MSG *in)   = 0;
+    virtual int fanout_msg_out(MSG *out) = 0;
     virtual int msg_out(MSG *out)                       = 0;
     virtual int msg_out_list(MSG *out)                  = 0;
 
@@ -270,9 +272,10 @@ public:
         return &this->in_msg_pool;
     }
     
-    virtual int fanout_msg_in(MSG *in, long long seq)
+    virtual int fanout_msg_in(MSG *in)
     {
-        int          ret;
+        int ret;
+        long long seq = in->get_seq();
         CommSession *cur_session = in->session;
 
         //if (!this->is_open())
@@ -307,9 +310,10 @@ public:
         return 0;
     }
 
-    virtual int fanout_msg_out(MSG *out, long long seq)
+    virtual int fanout_msg_out(MSG *out)
     {
         int ret;
+        long long seq = out->get_seq();
         std::lock_guard<std::mutex> lck(this->out_mutex);
         if (!this->is_open())
             return -1;
@@ -353,17 +357,16 @@ public:
             return 0;
 
         if (!this->is_open()) {
-            return -1;
+            return 0;
         }
-
+        
         ret = this->get_scheduler()->channel_send_one(this);
         if (ret < 0)
         {
             this->shutdown();
         }
 
-        return ret;
-
+        return 0;
     }
 
     virtual int msg_out(MSG *out)
