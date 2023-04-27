@@ -67,7 +67,7 @@ protected:
     using MSG = protocol::ProtocolMessage;
     
 public:
-    using ChannelBase = WFNetworkTask<MSG, MSG>;
+    using Channel = WFNetworkTask<MSG, MSG>;
 
 public:
     // new ChannelMsg is safe in the new_msg_session function
@@ -96,15 +96,15 @@ public:
     virtual void set_termination_cb(std::function<void()>)  = 0;
 };
 
-template <typename ChannelEntry = WFChannel::ChannelBase>
+template <typename ChannelEntry = WFChannel::Channel>
 class WFChannelImpl : public ChannelEntry, public WFChannel
 {
 private:
-    static_assert(std::is_base_of<ChannelBase, ChannelEntry>::value,
+    static_assert(std::is_base_of<Channel, ChannelEntry>::value,
                   "WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>> must is "
                   "base of ChannelEntry");
 protected:
-    using channel_callback_t = std::function<void(ChannelBase *)>;
+    using channel_callback_t = std::function<void(Channel*)>;
 
     virtual CommMessageIn *message_in()
     {
@@ -119,17 +119,14 @@ protected:
 
         session = this->new_msg_session();
         if (!session)
-        {
             return nullptr;
-        }
+        
         session->set_state(WFC_MSG_STATE_IN);
         session->set_seq(this->msg_seq++);
 
         msg = session->get_msg();
         if (!msg)
-        {
             return nullptr;
-        }
         
         msg->seq     = session->get_seq();
         msg->session = session;

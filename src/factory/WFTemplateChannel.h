@@ -22,27 +22,16 @@
 /**********TemlateChannel impl**********/
 //using ChannelMsg = WFChannelMsg<protocolMsg>;
 
-template<typename protocolMsg, typename ChannelMsg=WFChannelMsg<protocolMsg>>
+template<typename protocolMsg, typename CMsgEntry=WFChannelMsg<protocolMsg>>
 class WFTemplateChannel {
 private:
     static_assert(std::is_base_of<protocol::ProtocolMessage, protocolMsg>::value,
                   "protocol::ProtocolMessage must is base of protocolMsg");
 public:
-    int send_task_msg(MsgTask *task, int flag = WFC_MSG_STATE_OUT, protocolMsg *in = nullptr) {
-        task->set_state(flag);
-        
-        if (in)
-            series_of(dynamic_cast<MsgTask *>(in->session))->push_back(task);
-        else
-            task->start();
-        
-        return 0;
-    }
-    
     virtual int send(void *buf, size_t size) {
         int ret = 0;
         auto *task = this->safe_new_msg_task(
-                [](WFChannel* ch) {return new ChannelMsg(ch);});
+                [](WFChannel* ch) {return new CMsgEntry(ch);});
 
         if (!task)
             return -1;
@@ -51,7 +40,7 @@ public:
         ret = msg->append_fill(buf, size);
         
         if (ret >= 0)
-            this->send_task_msg(static_cast<MsgTask*>(task));
+            this->send_task_msg(static_cast<ChannelMsg*>(task));
         else
             delete task;
         
@@ -62,9 +51,20 @@ public:
         return this->channel->is_open();
     }
 
-protected:
+public:
+    int send_task_msg(ChannelMsg *task, int flag = WFC_MSG_STATE_OUT, protocolMsg *in = nullptr) {
+        task->set_state(flag);
+        
+        if (in)
+            series_of(dynamic_cast<ChannelMsg *>(in->session))->push_back(task);
+        else
+            task->start();
+        
+        return 0;
+    }
+ 
     virtual MsgSession* safe_new_msg_task(std::function<MsgSession*(WFChannel*)> fn) {
-        // Atomic this->ref to protect new(ChannelMsg) ctx 
+        // Atomic this->ref to protect new(CMsgEntry) ctx 
         // in the active sending scenario
         {
             std::lock_guard<std::recursive_mutex> lck(this->channel->write_mutex);
@@ -79,16 +79,15 @@ protected:
         }
     
         // now is safe new
-        //auto task = new ChannelMsg(this->channel);
+        //auto task = new CMsgEntry(this->channel);
         auto task = fn(this->channel);
         this->channel->decref();
         
         return task;
     }
 
-
 public:
-    explicit WFTemplateChannel<protocolMsg, ChannelMsg>(WFChannel *channel) {
+    explicit WFTemplateChannel<protocolMsg, CMsgEntry>(WFChannel *channel) {
         assert(channel);
         this->channel = channel;
         this->process_msg_fn = nullptr;
@@ -108,8 +107,8 @@ private:
     WFChannel *channel;
 };
 
-template<typename protocolMsg, typename ChannelMsg=WFChannelMsg<protocolMsg>>
-class WFTemplateChannelClient : public WFChannelClient, public WFTemplateChannel<protocolMsg, ChannelMsg> {
+template<typename protocolMsg, typename CMsgEntry=WFChannelMsg<protocolMsg>>
+class WFTemplateChannelClient : public WFChannelClient, public WFTemplateChannel<protocolMsg, CMsgEntry> {
 public:
     virtual int process_msg(MSG *message) { 
         if (this->process_msg_fn)
@@ -119,23 +118,23 @@ public:
     }
 
     virtual MsgSession *new_msg_session() {
-        MsgSession *session = new ChannelMsg(this);
+        MsgSession *session = new CMsgEntry(this);
         
         return session;
     }
     
-    void set_frist_msg_fn(std::function<ChannelMsg* (WFChannel *)> fn) {
+    void set_frist_msg_fn(std::function<CMsgEntry* (WFChannel *)> fn) {
         this->frist_msg_fn = fn;
     }
 
 private:
-    // new ChannelMsg is safe in there
-    std::function<ChannelMsg* (WFChannel*)> frist_msg_fn;
+    // new CMsgEntry is safe in there
+    std::function<CMsgEntry* (WFChannel*)> frist_msg_fn;
 
 protected:
     int send_frist_msg() {
         if (this->frist_msg_fn) {
-            ChannelMsg *task = this->frist_msg_fn(this);
+            CMsgEntry *task = this->frist_msg_fn(this);
             if (!task)
                 return -1;
 
@@ -173,8 +172,8 @@ public:
 };
 
 
-template<typename protocolMsg, typename ChannelMsg=WFChannelMsg<protocolMsg>>
-class WFTemplateChannelServer : public WFChannelServer, public WFTemplateChannel<protocolMsg, ChannelMsg> {
+template<typename protocolMsg, typename CMsgEntry=WFChannelMsg<protocolMsg>>
+class WFTemplateChannelServer : public WFChannelServer, public WFTemplateChannel<protocolMsg, CMsgEntry> {
 public:
     virtual int process_msg(MSG *message) { 
         if (this->process_msg_fn)
@@ -184,14 +183,14 @@ public:
     }
 
     virtual MsgSession *new_msg_session() {
-        MsgSession *session = new ChannelMsg(this);
+        MsgSession *session = new CMsgEntry(this);
         
         return session;
     }
   
 public:
     explicit WFTemplateChannelServer(CommService *service, CommScheduler *scheduler)
-        : WFChannelServer(scheduler, service), WFTemplateChannel<protocolMsg, ChannelMsg>(this) {
+        : WFChannelServer(scheduler, service), WFTemplateChannel<protocolMsg, CMsgEntry>(this) {
     
         this->set_keep_alive(-1);
         this->set_receive_timeout(-1);

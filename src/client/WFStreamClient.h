@@ -14,11 +14,14 @@
 #ifndef _SRC_CLIENT_WFSTREAMCLIENT_H_
 #define _SRC_CLIENT_WFSTREAMCLIENT_H_
 
-
-using StreamChannelClient = WFTemplateChannelClient<protocol::StreamMessage, WFChannelMsg<protocol::StreamMessage>>; 
-
 class WFStreamClient
 {
+using MSG = protocol::ProtocolMessage;
+using protocolMsg = protocol::StreamMessage;
+
+using ChannelMsg = WFChannelMsg<protocolMsg>;
+using StreamChannelClient = WFTemplateChannelClient<protocolMsg>;
+
 public:
     explicit WFStreamClient(std::string uri)
         : wg_(new WFFacilities::WaitGroup(1)),
@@ -43,24 +46,24 @@ public:
         }
     }
 
-    bool send(const char *data, size_t size)
+    int send(const char *data, size_t size)
     {
         if (!this->open())
             return false;
 
-        return this->client_->send((void*)data, size) >= 0;
+        return this->client_->send((void*)data, size);
     }
 
-    void set_process_fn(std::function<int(WFChannel *, protocol::StreamMessage *)> fn) {
+    void set_process_fn(std::function<int(WFChannel *, protocolMsg *)> fn) {
         this->client_->set_process_msg_fn(fn); 
     }
     
-    void set_frist_msg_fn(std::function<WFChannelMsg<protocol::StreamMessage>*(WFChannel*)> fn) {
+    void set_frist_msg_fn(std::function<ChannelMsg* (WFChannel*)> fn) {
         this->client_->set_frist_msg_fn(fn); 
     }
  
 protected:
-    void channel_done_callback(WFChannel::ChannelBase *)
+    void channel_done_callback(WFChannel::Channel*)
     {
         std::unique_lock<std::mutex> lck(this->mutex_);
         this->client_ = nullptr;

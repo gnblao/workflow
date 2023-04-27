@@ -15,12 +15,12 @@
 #include <stdlib.h>
 #include <string>
 
-using ChannelMsg = WFChannelMsg<protocol::StreamMessage>;
-ChannelMsg * frist_msg_fn(WFChannel *channel) {
+using CMsgEntry = WFChannelMsg<protocol::StreamMessage>;
+CMsgEntry * frist_msg_fn(WFChannel *channel) {
     size_t len;
     std::string s={"gdhjahgjgasjhfdhasfghasfhsaasgas"};
     
-    auto task = new ChannelMsg(channel);
+    auto task = new CMsgEntry(channel);
     if (task) {
         auto msg = task->get_msg();
 
@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
             s = s200;
         if (!s.compare("5000"))
             s = s5000;
-        if (!client.send(s.c_str(), s.length()))
+        if (client.send(s.c_str(), s.length()) < 0)
             break;
     }
 

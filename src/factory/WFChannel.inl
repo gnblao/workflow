@@ -34,7 +34,7 @@ protected:
 public:
     void set_prepare_once(std::function<void()> fn)
     {
-        this->WFChannelClientBase::set_prepare([fn, this](ChannelBase*) {
+        this->WFChannelClientBase::set_prepare([fn, this](Channel*) {
             fn();
             this->WFChannelClientBase::set_prepare(nullptr);
         }); 

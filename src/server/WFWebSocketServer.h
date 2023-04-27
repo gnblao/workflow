@@ -12,6 +12,7 @@
 #include "WFGlobal.h"
 #include "ProtocolMessage.h"
 #include "WebSocketChannelImpl.h"
+#include "WebSocketMessage.h"
 
 static constexpr struct WFServerParams WS_SERVER_PARAMS_DEFAULT =
 {
@@ -27,6 +28,8 @@ class WFWebSocketServer : public WFServer<protocol::ProtocolMessage,
 							  protocol::ProtocolMessage> 
 {
 using MSG = protocol::ProtocolMessage;
+using protocolMsg = protocol::WebSocketFrame;
+
 public:
     inline CommSession *new_session(long long seq, CommConnection *conn)
     {
@@ -34,7 +37,8 @@ public:
 
         channel->set_keep_alive(this->params.keep_alive_timeout);
         channel->set_receive_timeout(this->params.receive_timeout);
-        channel->set_send_timeout(-1);
+        channel->set_send_timeout(this->params.peer_response_timeout);
+        
         channel->get_req()->set_size_limit(this->params.request_size_limit);
 
         channel->set_sec_version(this->sec_version);
@@ -58,20 +62,40 @@ public:
     }
 
 public: 
+    void set_keep_alive_timeout(int millisecond) {
+        this->params.keep_alive_timeout = millisecond;
+    }
+    void set_receive_timeout(int millisecond) {
+        this->params.receive_timeout = millisecond;
+    }
+    void set_send_timeout(int millisecond) {
+        this->params.peer_response_timeout = millisecond;
+    }
+
+public: 
     void set_auto_gen_mkey(bool b) {
         this->auto_gen_mkey = b;
     }
  
-    void set_ping_interval(int millisecond) {this->ping_interval = millisecond;}
-	void set_sec_protocol(const std::string &protocol) { this->sec_protocol = protocol;}
-	void set_sec_version(const std::string &version) { this->sec_version = version;}
+    void set_ping_interval(int millisecond) {
+        this->ping_interval = millisecond;
+    }
+
+	void set_sec_protocol(const std::string &protocol) { 
+        this->sec_protocol = protocol;
+    }
+	
+    void set_sec_version(const std::string &version) {
+        this->sec_version = version;
+    }
     
-    void set_process_binary_fn(std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> fn) {
+    void set_process_binary_fn(std::function<void(WebSocketChannel*, protocolMsg *in)> fn) {
         this->process_binary_fn = fn; 
     }
-    void set_process_text_fn(std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> fn) {
+    void set_process_text_fn(std::function<void(WebSocketChannel*, protocolMsg *in)> fn) {
         this->process_text_fn = fn; 
     }
+
 protected:
     virtual bool is_channel() {return true;}
 
@@ -81,8 +105,8 @@ private:
 	std::string sec_protocol;   // Sec-WebSocket-Protocol
 	std::string sec_version;    // Sec-WebSocket-Version
     
-    std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> process_text_fn;
-    std::function<void(WebSocketChannel*, protocol::WebSocketFrame *in)> process_binary_fn;
+    std::function<void(WebSocketChannel*, protocolMsg *in)> process_text_fn;
+    std::function<void(WebSocketChannel*, protocolMsg *in)> process_binary_fn;
 };
 
 #endif  // _SRC_SERVER_WFWEBSOCKETSERVER_H_

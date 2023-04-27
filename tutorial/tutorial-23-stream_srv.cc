@@ -28,7 +28,7 @@ void sig_handler(int signo) { wait_group.done(); }
 int process_text(WFChannel *ch, protocol::StreamMessage *in) {
     std::cout << "-----data len:" << in->get_parser()->size << std::endl;
 
-    auto *channel = static_cast<StreamChannelServer*>(ch);
+    auto *channel = static_cast<WFStreamServer::StreamChannelServer*>(ch);
     return channel->send(
         (char *)in->get_parser()->data, in->get_parser()->size);
 }
