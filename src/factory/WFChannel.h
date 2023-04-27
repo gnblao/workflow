@@ -214,7 +214,13 @@ public:
 
     virtual int incref()
     {
-        return this->ref.fetch_add(1);
+        int value = this->ref;
+
+        while (value > 0 && !this->ref.compare_exchange_strong(value, value+1)) {
+        }
+        
+        return value;
+        //return this->ref.fetch_add(1);
     }
     
     virtual void decref(int skip_delete=0)
@@ -407,6 +413,7 @@ public:
     virtual void set_termination_cb(std::function<void()> bc) {
         this->termination_cb = std::move(bc);
     } 
+
 protected:
     virtual void delete_this(void *t)
     {

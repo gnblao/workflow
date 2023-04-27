@@ -277,6 +277,11 @@ public:
         }
     }
 
+public:
+    CommServiceTarget():sockfd(-1), ref(0) {}
+
+    virtual ~CommServiceTarget() {}
+
 private:
     int sockfd;
     int ref;
@@ -1272,7 +1277,8 @@ poller_message_t *Communicator::create_request(void *context) {
         mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
         entry->state = CONN_STATE_RECEIVING;
 
-        ((CommServiceTarget *)target)->incref();
+        if (!session->is_channel())
+            ((CommServiceTarget *)target)->incref();
     } else {
         session = entry->session;
     }

@@ -41,16 +41,17 @@ public:
         if(channel->incref() > 0) {
             this->channel = channel;
         } else { 
-            std::cout << "The context of the new object (WFChannelMsg<XXX>) is incorrect !!!! "
-                      << "please consider using the safe_new_msg_task function" << std::endl;
             this->channel = nullptr;
+            std::cout << "!!! channel has been shut down !!!! "
+                      << "The context of the new object (WFChannelMsg<XXX>) is incorrect !!!! "
+                      << "please using the safe_new_msg_task function to new object" << std::endl;
         }
     }
     
     virtual ~ChannelMsg() {
         if (this->channel)
             this->channel->decref();
-        
+
         if (this->msg)
             delete this->msg;
     }
