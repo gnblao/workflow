@@ -1277,8 +1277,7 @@ poller_message_t *Communicator::create_request(void *context) {
         mpoller_set_timeout(entry->sockfd, timeout, entry->mpoller);
         entry->state = CONN_STATE_RECEIVING;
 
-        if (!session->is_channel())
-            ((CommServiceTarget *)target)->incref();
+        ((CommServiceTarget *)target)->incref();
     } else {
         session = entry->session;
     }

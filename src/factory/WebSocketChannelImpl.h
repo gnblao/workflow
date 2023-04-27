@@ -120,7 +120,7 @@ public:
                    this->ping_interval * 1000,
                    std::bind(&WebSocketChannel::timer_callback, this, std::placeholders::_1));
 
-           this->channel->set_termination_cb([this](){this->ping_timer->unsleep();});
+           this->channel->set_delete_cb(std::bind(&WebSocketChannel::delete_callback, this));
            this->ping_timer->start();
        } else {
            //std::cout << "This shouldn't happen, and if it does it's a bug!!!!" << std::endl;
@@ -138,8 +138,14 @@ public:
     }
 
 private:
+    void delete_callback() {
+        if (this->ping_timer) {
+            this->ping_timer->unsleep();
+            this->ping_timer = nullptr;
+        }
+    }
     void timer_callback(WFTimerTask *timer) {
-        this->channel->set_termination_cb(nullptr);
+        this->ping_timer = nullptr;
         if (timer->get_state() == SS_STATE_COMPLETE) {
             if (this->channel->is_open() && this->ping_interval < update_interval())
                 this->send_ping();

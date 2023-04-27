@@ -137,8 +137,11 @@ protected:
     virtual SubTask *done() {
         SeriesWork *series = series_of(this);
         
-        if (this->get_state() == WFC_MSG_STATE_DONE) {
-            delete this;
+        if (this->get_state() == WFC_MSG_STATE_SUCCEED) {
+            this->set_state(WFC_MSG_STATE_DELAYED);
+            
+            //series_of(this)->set_last_task(this);
+            series_of(this)->push_back(this);
         } else {
             if (this->callback)
                 this->callback(this);
@@ -146,10 +149,7 @@ protected:
             if (this->inner_callback)
                 this->inner_callback(this);
             
-            if (this->get_state() == WFC_MSG_STATE_DELAYED) {
-                this->set_state(WFC_MSG_STATE_DONE);
-            } else
-                delete this;
+            delete this;
         }
         
         return series->pop();
@@ -161,13 +161,6 @@ protected:
                 this->process(this);
 
             this->eat_msg();
-        }
-            
-        if (this->get_state() == WFC_MSG_STATE_SUCCEED) {
-            this->set_state(WFC_MSG_STATE_DELAYED);
-
-            //series_of(this)->push_front(this);
-            series_of(this)->set_last_task(this);
         }
 
         this->subtask_done();

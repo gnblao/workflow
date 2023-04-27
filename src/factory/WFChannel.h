@@ -28,7 +28,6 @@
 
 enum
 {
-    WFC_MSG_STATE_DONE = -3,
     WFC_MSG_STATE_DELAYED = -2,
     WFC_MSG_STATE_ERROR = -1,
     WFC_MSG_STATE_SUCCEED = 0,
@@ -93,7 +92,7 @@ public:
     virtual int  shutdown()  = 0;
     virtual WFResourcePool* get_resource_pool()  = 0;
 
-    virtual void set_termination_cb(std::function<void()>)  = 0;
+    virtual void set_delete_cb(std::function<void()>)  = 0;
 };
 
 template <typename ChannelEntry = WFChannel::Channel>
@@ -391,7 +390,7 @@ protected:
         this->ref       = 1;
         this->stop_flag = false;
         
-        this->termination_cb = nullptr;
+        this->delete_callback = nullptr;
     }
 
     /*for server*/
@@ -403,15 +402,15 @@ protected:
         this->ref       = 1;
         this->stop_flag = false;
         
-        this->termination_cb = nullptr;
+        this->delete_callback = nullptr;
     }
 
 private:
-    std::function<void()> termination_cb;
+    std::function<void()> delete_callback;
 
 public: 
-    virtual void set_termination_cb(std::function<void()> bc) {
-        this->termination_cb = std::move(bc);
+    virtual void set_delete_cb(std::function<void()> bc) {
+        this->delete_callback = std::move(bc);
     } 
 
 protected:
@@ -436,8 +435,8 @@ protected:
             *(this->get_in()) = nullptr;
         }
        
-        if (this->termination_cb)
-            this->termination_cb();
+        if (this->delete_callback)
+            this->delete_callback();
 
         this->decref();
     }
