@@ -19,7 +19,6 @@
 #ifndef _SLEEPREQUEST_H_
 #define _SLEEPREQUEST_H_
 
-#include <atomic>
 #include <errno.h>
 #include "SubTask.h"
 #include "Communicator.h"
@@ -31,7 +30,6 @@ public:
     SleepRequest(CommScheduler *scheduler)
     {
         this->scheduler = scheduler;
-        this->disrupted = false;
     }
 
 public:
@@ -41,23 +39,12 @@ public:
             this->handle(SS_STATE_ERROR, errno);
     }
 
-    virtual void unsleep()
-    {
-        if (!this->disrupted.exchange(true)) {
-            this->scheduler->unsleep(this);
-
-            this->state = SS_STATE_DISRUPTED;
-            this->error = 0;
-            this->subtask_done();
-        }
+    virtual void unsleep() {
+        this->scheduler->unsleep(this);
     }
-
 protected:
     int state;
     int error;
-
-private:
-    std::atomic<bool> disrupted;
 
 protected:
     CommScheduler *scheduler;
@@ -65,11 +52,9 @@ protected:
 protected:
     virtual void handle(int state, int error)
     {
-        if (!this->disrupted.exchange(true)) {
-            this->state = state;
-            this->error = error;
-            this->subtask_done();
-        }
+        this->state = state;
+        this->error = error;
+        this->subtask_done();
     }
 };
 

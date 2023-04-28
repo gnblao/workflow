@@ -935,6 +935,11 @@ static void __poller_handle_timeout(const struct __poller_node *time_node,
 				poller->nodes[node->data.fd] = NULL;
 				__poller_del_fd(node->data.fd, node->event, poller);
 			}
+            
+            if (node->data.operation == PD_OP_TIMER && node->data.timerid.bitmap_id > 0) {
+                poller->timer_nodes[node->data.timerid.bitmap_id] = NULL;
+                bitmap_clear_bit(poller->timer_bmp, node->data.timerid.bitmap_id);
+            }
 
 			list_move_tail(pos, &timeo_list);
 		}
@@ -955,7 +960,12 @@ static void __poller_handle_timeout(const struct __poller_node *time_node,
 					__poller_del_fd(node->data.fd, node->event, poller);
 				}
 
-				poller->tree_first = rb_next(poller->tree_first);
+                if (node->data.operation == PD_OP_TIMER && node->data.timerid.bitmap_id > 0) {
+                    poller->timer_nodes[node->data.timerid.bitmap_id] = NULL;
+                    bitmap_clear_bit(poller->timer_bmp, node->data.timerid.bitmap_id);
+                }
+                
+                poller->tree_first = rb_next(poller->tree_first);
 				rb_erase(&node->rb, &poller->timeo_tree);
 				list_add_tail(&node->list, &timeo_list);
 				if (poller->tree_first)
@@ -974,11 +984,6 @@ static void __poller_handle_timeout(const struct __poller_node *time_node,
 		node = list_entry(timeo_list.next, struct __poller_node, list);
 		list_del(&node->list);
        
-        if (node->data.operation == PD_OP_TIMER) {
-            bitmap_clear_bit(poller->timer_bmp, node->data.timerid);
-            poller->timer_nodes[node->data.timerid] = NULL;
-        }
-
 		node->error = ETIMEDOUT;
 		node->state = PR_ST_ERROR;
 		free(node->res);
@@ -1546,27 +1551,27 @@ int poller_set_timeout(int fd, int timeout, poller_t *poller)
 	return -!node;
 }
 
-int poller_del_timer(unsigned int timerid, poller_t *poller)
+int poller_del_timer(poller_timerid_t timerid, poller_t *poller)
 {
     struct __poller_node *node;
 
-    if ((size_t)timerid >= POLLER_TIMER_MAX)
+    if (timerid.bitmap_id >= POLLER_TIMER_MAX)
     {
-        errno = timerid < 0 ? EBADF : EMFILE;
+        errno = timerid.bitmap_id < 0 ? EBADF : EMFILE;
         return -1;
     }
 
     pthread_mutex_lock(&poller->mutex);
-    node = poller->timer_nodes[timerid];
-    if (node)
+    node = poller->timer_nodes[timerid.bitmap_id];
+    if (node && node->data.timerid.id_key == timerid.id_key)
     {
-        poller->timer_nodes[timerid] = NULL;
-        bitmap_clear_bit(poller->timer_bmp, node->data.timerid);
-
         if (node->in_rbtree)
             __poller_tree_erase(node, poller);
         else
             list_del(&node->list);
+        
+        poller->timer_nodes[timerid.bitmap_id] = NULL;
+        bitmap_clear_bit(poller->timer_bmp, timerid.bitmap_id);
 
         node->error = 0;
         node->state = PR_ST_DELETED;
@@ -1590,7 +1595,7 @@ int poller_del_timer(unsigned int timerid, poller_t *poller)
 
 
 int poller_add_timer(const struct timespec *value, void *context,
-					 poller_t *poller, unsigned int *timerid)
+					 poller_t *poller, poller_timerid_t *timerid)
 {
 	struct __poller_node *node;
 
@@ -1617,15 +1622,18 @@ int poller_add_timer(const struct timespec *value, void *context,
 		pthread_mutex_lock(&poller->mutex);
 		__poller_insert_node(node, poller);
         
-        unsigned long id;
+        unsigned int id;
         id = bitmap_find_first_clear_bit(poller->timer_bmp, 0, POLLER_TIMER_MAX);
         bitmap_set_bit(poller->timer_bmp, id);
-        node->data.timerid = id;
+
+        if (timerid) { 
+            timerid->bitmap_id = id;
+            node->data.timerid = *timerid;
+        }
+
+        node->data.timerid.bitmap_id = id;
 
         poller->timer_nodes[id] = node; 
-        if (timerid) 
-            *timerid = id;
-
 		pthread_mutex_unlock(&poller->mutex);
 		
         return 0;

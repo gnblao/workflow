@@ -22,7 +22,6 @@
 #include "list.h"
 #include "poller.h"
 #include "mpoller.h"
-#include <atomic>
 #include <errno.h>
 #include <list>  // c++
 #include <mutex> // c++
@@ -254,8 +253,8 @@ private:
     virtual int duration(struct timespec *value) = 0;
     virtual void handle(int state, int error) = 0;
 
-private:
-    unsigned int timerid;
+public:
+    unsigned long long timerid;
 
 public:
     SleepSession(): timerid(0) {}
@@ -313,6 +312,7 @@ public:
 
     int sleep(SleepSession *session);
     int unsleep(SleepSession *session);
+    int unsleep(unsigned long long timerid);
 
     int io_bind(IOService *service);
     void io_unbind(IOService *service);

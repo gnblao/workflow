@@ -1087,7 +1087,7 @@ void Communicator::handle_sleep_result(struct poller_result *res) {
     SleepSession *session = (SleepSession *)res->data.context;
     int state;
 
-    if (res->state == PR_ST_STOPPED)
+    if (res->state == PR_ST_STOPPED || res->state == PR_ST_DELETED)
         state = SS_STATE_DISRUPTED;
     else
         state = SS_STATE_COMPLETE;
@@ -1861,7 +1861,9 @@ int Communicator::push(const void *buf, size_t size, CommSession *session) {
 int Communicator::unsleep(SleepSession *session) {
     return mpoller_del_timer(session->timerid, this->mpoller);
 }
-
+int Communicator::unsleep(unsigned long long timerid) {
+    return mpoller_del_timer(timerid, this->mpoller);
+}
 int Communicator::sleep(SleepSession *session) {
     struct timespec value;
 

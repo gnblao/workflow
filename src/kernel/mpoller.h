@@ -72,31 +72,32 @@ static inline int mpoller_set_timeout(int fd, int timeout, mpoller_t *mpoller)
 }
 
 static inline int mpoller_add_timer(const struct timespec *value, void *context,
-									mpoller_t *mpoller, unsigned int *timerid)
+									mpoller_t *mpoller, unsigned long long *timerid)
 {
-	static unsigned int n = 0;
-	unsigned int tid = 0;
-	unsigned int index = n++ % mpoller->nthreads;
+    static volatile unsigned int n = 0;
+    unsigned int index = n++ % mpoller->nthreads;
+
+    poller_timerid_t tid;
+    tid.poller_id = index;
+    tid.id_key = n;
 
     int ret = poller_add_timer(value, context, mpoller->poller[index], &tid);
     if (ret)
-        return ret;;
-    
+        return ret;
+
     if (timerid)
-        *timerid = ((index << POLLER_TIMER_SHIFT) + tid);
+        *timerid = tid.u64;
 
     return ret;
 }
 
-static inline int mpoller_del_timer(unsigned int timerid, mpoller_t *mpoller)
+static inline int mpoller_del_timer(unsigned long long timerid, mpoller_t *mpoller)
 {
-    unsigned int poller_index;
+    poller_timerid_t tid;
+    tid.u64 = timerid;
 
-    poller_index = timerid >> POLLER_TIMER_SHIFT;
-    timerid = (timerid - (poller_index << POLLER_TIMER_SHIFT));
-    
-    if (timerid > 0) {
-        return poller_del_timer(timerid, mpoller->poller[poller_index]);
+    if (tid.bitmap_id > 0 && tid.poller_id < mpoller->nthreads) {
+        return poller_del_timer(tid, mpoller->poller[tid.poller_id]);
     }
 
     return -1;

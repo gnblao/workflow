@@ -25,7 +25,20 @@
 #include <openssl/ssl.h>
 
 #define POLLER_TIMER_SHIFT		16
-#define POLLER_TIMER_MAX		(1UL << POLLER_TIMER_SHIFT)
+#define POLLER_TIMER_MAX		((1UL << POLLER_TIMER_SHIFT) -1)
+
+struct __poller_timerid {
+    union {
+        struct{
+            unsigned int poller_id : POLLER_TIMER_SHIFT;
+            unsigned int bitmap_id : (32-POLLER_TIMER_SHIFT);
+            unsigned int id_key;
+        };
+        unsigned long long u64;
+    };
+};
+
+typedef struct __poller_timerid poller_timerid_t;
 
 typedef struct __poller poller_t;
 typedef struct __poller_message poller_message_t;
@@ -54,7 +67,7 @@ struct poller_data
 	short operation;
 	unsigned short iovcnt;
 	int fd;
-	unsigned int timerid;
+    poller_timerid_t timerid;
 	SSL *ssl;
 	union
 	{
@@ -108,8 +121,8 @@ int poller_del(int fd, poller_t *poller);
 int poller_mod(const struct poller_data *data, int timeout, poller_t *poller);
 int poller_set_timeout(int fd, int timeout, poller_t *poller);
 int poller_add_timer(const struct timespec *value, void *context,
-					 poller_t *poller, unsigned int *result);
-int poller_del_timer(unsigned int timerid, poller_t *poller);
+					 poller_t *poller, poller_timerid_t *timerid);
+int poller_del_timer(poller_timerid_t timerid, poller_t *poller);
 void poller_stop(poller_t *poller);
 void poller_destroy(poller_t *poller);
 

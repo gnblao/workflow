@@ -165,6 +165,11 @@ public:
 		return this->comm.sleep(session);
 	}
 	
+    int unsleep(unsigned long long timerid)
+	{
+		return this->comm.unsleep(timerid);
+	}
+
     int unsleep(SleepSession *session)
 	{
 		return this->comm.unsleep(session);
