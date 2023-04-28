@@ -220,10 +220,12 @@ public:
 
 public:
 	static WFTimerTask *create_timer_task(unsigned int microseconds,
-										  timer_callback_t callback);
+										  timer_callback_t callback,
+                                          std::function<void(unsigned long long)> return_id_fn =nullptr);
 
 	static WFTimerTask *create_timer_task(time_t seconds, long nanoseconds,
-										  timer_callback_t callback);
+										  timer_callback_t callback,
+                                          std::function<void(unsigned long long)> return_id_fn =nullptr);
 
 	/* Counter is like semaphore. The callback of counter is called when
 	 * 'count' operations reach target_value & after the task is started.

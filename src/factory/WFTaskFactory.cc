@@ -17,10 +17,13 @@
            Xie Han (xiehan@sogou-inc.com)
 */
 
+#include <functional>
 #include <sys/types.h>
 #include <time.h>
 #include <string>
 #include <mutex>
+#include <utility>
+#include "WFTask.h"
 #include "list.h"
 #include "rbtree.h"
 #include "WFGlobal.h"
@@ -40,10 +43,18 @@ protected:
 	time_t seconds;
 	long nanoseconds;
 
+    virtual void dispatch() {
+        this->::WFTimerTask::dispatch();
+        if (return_id_fn)
+            this->return_id_fn(this->timerid);
+    }
+
+    std::function<void(unsigned long long)> return_id_fn;
+
 public:
 	__WFTimerTask(CommScheduler *scheduler, time_t seconds, long nanoseconds,
-				  timer_callback_t&& cb) :
-		WFTimerTask(scheduler, std::move(cb))
+				  timer_callback_t&& cb, std::function<void(unsigned long long)> ret_id_fn=nullptr) :
+		WFTimerTask(scheduler, std::move(cb)), return_id_fn(ret_id_fn)
 	{
 		this->seconds = seconds;
 		this->nanoseconds = nanoseconds;
@@ -51,19 +62,19 @@ public:
 };
 
 WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
-											  timer_callback_t callback)
+											  timer_callback_t callback, std::function<void(unsigned long long)> return_id_fn)
 {
 	return new __WFTimerTask(WFGlobal::get_scheduler(),
 							 (time_t)(microseconds / 1000000),
 							 (long)(microseconds % 1000000 * 1000),
-							 std::move(callback));
+							 std::move(callback), std::move(return_id_fn));
 }
 
 WFTimerTask *WFTaskFactory::create_timer_task(time_t seconds, long nanoseconds,
-											  timer_callback_t callback)
+											  timer_callback_t callback, std::function<void(unsigned long long)> return_id_fn)
 {
 	return new __WFTimerTask(WFGlobal::get_scheduler(), seconds, nanoseconds,
-							 std::move(callback));
+							 std::move(callback), std::move(return_id_fn));
 }
 
 class __WFCounterTask;
