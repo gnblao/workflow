@@ -12,8 +12,8 @@
 #include "WFGlobal.h"
 #include "ProtocolMessage.h"
 #include "StreamMessage.h"
-#include "WFTemplateChannel.h"
-
+#include "WFChannel.h"
+#include "WFChannelMsg.h"
 
 static constexpr struct WFServerParams STREAM_SERVER_PARAMS_DEFAULT =
 {
@@ -33,12 +33,12 @@ using MSG = protocol::ProtocolMessage;
 using protocolMsg = protocol::StreamMessage;
 
 public:
-using StreamChannelServer = WFTemplateChannelServer<protocolMsg>;
+using StreamChannelServer = WFChannelServer<protocolMsg>;
 
 public:
     inline CommSession *new_session(long long seq, CommConnection *conn)
     {
-        StreamChannelServer *channel = new StreamChannelServer(this, WFGlobal::get_scheduler());
+        StreamChannelServer *channel = new StreamChannelServer(WFGlobal::get_scheduler(), this);
 
         channel->set_keep_alive(this->params.keep_alive_timeout);
         channel->set_receive_timeout(this->params.receive_timeout);

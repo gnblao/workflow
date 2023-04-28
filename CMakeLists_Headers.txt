@@ -107,7 +107,6 @@ set(INCLUDE_HEADERS
 	src/factory/WFChannelMsg.h
 	src/factory/WFChannelRequest.h
 	src/factory/WebSocketChannelImpl.h
-	src/factory/WFTemplateChannel.h
 	src/factory/WFMessageQueue.h
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDnsResolver.h

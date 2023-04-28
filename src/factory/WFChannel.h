@@ -25,6 +25,7 @@
 #include "WFResourcePool.h"
 #include "WFTask.h"
 #include "WFTaskFactory.h"
+#include "Workflow.h"
 
 enum
 {
@@ -60,6 +61,8 @@ private:
     }
 };
 
+class ChannelMsg;
+
 class WFChannel
 {
 protected:
@@ -72,6 +75,14 @@ public:
     // new ChannelMsg is safe in the new_msg_session function
     virtual MsgSession *new_msg_session() = 0;
     
+    virtual bool is_open()   = 0;
+    virtual int  shutdown()  = 0;
+
+    virtual int send(void *buf, size_t size) = 0;
+    virtual int send_channel_msg(ChannelMsg *task, int flag = WFC_MSG_STATE_OUT, MSG *in=nullptr) = 0;
+    virtual ChannelMsg* safe_new_channel_msg(std::function<ChannelMsg*(WFChannel*)> fn) = 0;
+
+public:
     // Active call for send 
     std::recursive_mutex       write_mutex;
     // virtual MsgSession *thread_safe_new_msg_session() = 0;
@@ -88,12 +99,75 @@ public:
     virtual int msg_out_list(MSG *out)                  = 0;
 
     virtual bool is_server() = 0;
-    virtual bool is_open()   = 0;
-    virtual int  shutdown()  = 0;
     virtual WFResourcePool* get_resource_pool()  = 0;
 
     virtual void set_delete_cb(std::function<void()>)  = 0;
 };
+
+class ChannelMsg : public SubTask, public MsgSession {
+using MSG = protocol::ProtocolMessage;
+public:
+    void start() {
+        assert(!series_of(this));
+        Workflow::start_series_work(this, nullptr);
+    }
+
+    void dismiss() {
+        assert(!series_of(this));
+        delete this;
+    }
+
+public:
+    explicit ChannelMsg(WFChannel *channel, MSG *msg) : state(WFC_MSG_STATE_OUT), error(0) {
+        assert(channel);
+        assert(msg);
+        this->msg = msg;
+    
+        if(channel->incref() > 0) {
+            this->channel = channel;
+        } else { 
+            this->channel = nullptr;
+            std::cout << "!!! channel has been shut down !!!! "
+                      << "The context of the new object (WFChannelMsg<XXX>) is incorrect !!!! "
+                      << "please using the safe_new_msg_task function to new object" << std::endl;
+        }
+    }
+    
+    virtual ~ChannelMsg() {
+        if (this->channel)
+            this->channel->decref();
+
+        if (this->msg)
+            delete this->msg;
+    }
+
+    WFChannel *get_channel() const { return this->channel; }
+    //void set_channel(WFChannel *channel) { this->channel = channel; }
+
+    virtual int get_state() const { return this->state; }
+    virtual void set_state(int state) { this->state = state; }
+
+protected:
+    virtual MSG *get_msg() { return this->msg; }
+    virtual MSG *pick_msg() {
+        MSG *m = this->msg;
+
+        this->msg = nullptr;
+
+        return m;
+    }
+
+protected:
+    int state;
+    int error;
+
+private:
+    MSG *msg;
+
+protected:
+    WFChannel *channel;
+};
+
 
 template <typename ChannelEntry = WFChannel::Channel>
 class WFChannelImpl : public ChannelEntry, public WFChannel
@@ -135,7 +209,7 @@ protected:
     virtual CommMessageOut *message_out()
     {
         CommMessageOut *msg = nullptr;
-
+        
         //std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
         if (!this->write_mutex.try_lock())
             return msg;
@@ -403,6 +477,42 @@ protected:
         this->stop_flag = false;
         
         this->delete_callback = nullptr;
+    }
+
+
+public:
+    virtual int send_channel_msg(ChannelMsg *task, int flag = WFC_MSG_STATE_OUT, MSG *in = nullptr) {
+        task->set_state(flag);
+        
+        if (in)
+            series_of(dynamic_cast<ChannelMsg *>(in->session))->push_back(task);
+        else
+            task->start();
+        
+        return 0;
+    }
+ 
+    virtual ChannelMsg* safe_new_channel_msg(std::function<ChannelMsg*(WFChannel*)> fn) {
+        // Atomic this->ref to protect new(CMsgEntry) ctx 
+        // in the active sending scenario
+        {
+            std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
+            if (!this->is_open())
+                return nullptr;
+
+            if (this->incref() <= 0) {
+                //std::cout << "This shouldn't happen, and if it does it's a bug!!!!" << std::endl;
+                this->decref(1);
+                return nullptr;
+            }
+        }
+    
+        // now is safe new
+        //auto task = new CMsgEntry(this->channel);
+        auto task = fn(this);
+        this->decref();
+        
+        return task;
     }
 
 private:

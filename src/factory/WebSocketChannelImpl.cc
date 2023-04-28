@@ -146,16 +146,21 @@ int WebSocketChannel::__send_frame(const char *data, int size, enum ws_opcode op
                                std::function<void(WFChannelMsg<protocol::WebSocketFrame>*)> cb, 
                                protocol::WebSocketFrame *in)  {
     int ret;
-    if (!this->open())
-         return -1;
+
+    auto *task = static_cast<WSFrame*>(
+            this->channel->safe_new_channel_msg(
+                [](WFChannel* ch){return new WSFrame(ch);}));
+    if (!task)
+        return -1;
     
-    auto *task = new WSFrame(this->channel);
     auto msg = task->get_msg();
     
     ret = msg->set_frame(data, size, opcode, fin);
-    if (ret < 0)
+    if (ret < 0) {
+        delete task;
         return -1;
-    
+    }
+
     if (!this->channel->is_server()) 
         msg->set_masking_key(this->gen_masking_key());
    

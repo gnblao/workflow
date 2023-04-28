@@ -22,6 +22,9 @@ void sig_handler(int signo) { wait_group.done(); }
 void process_text(WebSocketChannel *ws, protocol::WebSocketFrame *in) {
     std::cout << "-----data len:" << in->get_parser()->payload_length << std::endl;
 
+    //ws->send_text(buf, size);
+    //ws->send_binary(buf, size);
+    
     ws->send_frame(
         (char *)in->get_parser()->payload_data, 
         in->get_parser()->payload_length,

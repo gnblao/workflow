@@ -7,7 +7,6 @@
 
 #include "WFChannel.h"
 #include "WFChannelMsg.h"
-#include "WFTemplateChannel.h"
 #include "StreamMessage.h"
 #include "WFFacilities.h"
 
@@ -20,12 +19,12 @@ using MSG = protocol::ProtocolMessage;
 using protocolMsg = protocol::StreamMessage;
 
 using ChannelMsg = WFChannelMsg<protocolMsg>;
-using StreamChannelClient = WFTemplateChannelClient<protocolMsg>;
+using StreamChannelClient = WFChannelClient<protocolMsg>;
 
 public:
     explicit WFStreamClient(std::string uri)
         : wg_(new WFFacilities::WaitGroup(1)),
-          client_(new StreamChannelClient(
+          client_(new StreamChannelClient(0, 
               std::bind(&WFStreamClient::channel_done_callback, this, std::placeholders::_1)))
     {
         URIParser::parse(uri, this->uri_);
@@ -81,7 +80,7 @@ protected:
             return false;
 
         if (this->client_)
-            return this->client_->open();
+            return this->client_->is_open();
 
         return false;
     }

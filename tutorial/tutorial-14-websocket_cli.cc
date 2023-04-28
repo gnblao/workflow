@@ -33,7 +33,6 @@
 #include <string>
 #include "unistd.h"
 
-using namespace protocol;
 
 void process_text(WebSocketChannel *ws, protocol::WebSocketFrame *in) {
     std::cout << std::string((char *)in->get_parser()->payload_data,

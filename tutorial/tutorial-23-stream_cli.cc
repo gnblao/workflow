@@ -1,4 +1,5 @@
 
+#include "workflow/ProtocolMessage.h"
 #include "workflow/EndpointParams.h"
 #include "workflow/StreamMessage.h"
 #include "workflow/WFFacilities.h"
