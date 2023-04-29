@@ -167,10 +167,7 @@ int WebSocketChannel::__send_frame(const char *data, int size, enum ws_opcode op
     if (cb)
         task->set_callback(std::move(cb));
 
-    if (in)
-        series_of(dynamic_cast<WSFrame *>(in->session))->push_back(task);
-    else
-        task->start();
+    task->start();
     return size;
 }
 

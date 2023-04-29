@@ -5,7 +5,6 @@
     > Created Time: 2022年05月05日 星期四 11时37分35秒
  ************************************************************************/
 
-#include "WFChannel.h"
 #include "WFChannelMsg.h"
 #include <functional>
 #include <memory>
@@ -74,10 +73,7 @@ public:
         auto *msg = task->get_msg();
         ret = msg->append_fill(buf, size);
         
-        if (ret >= 0)
-            this->send_channel_msg(static_cast<ChannelMsg*>(task));
-        else
-            delete task;
+        task->start();
         
         return ret;
     }
@@ -159,11 +155,7 @@ public:
         auto *msg = task->get_msg();
         ret = msg->append_fill(buf, size);
         
-        if (ret >= 0)
-            this->send_channel_msg(static_cast<ChannelMsg*>(task));
-        else
-            delete task;
-        
+        task->start();
         return ret;
     }
  

@@ -27,19 +27,14 @@ public:
     }
     
     protocolMsg* get_msg() { return static_cast<protocolMsg*>(this->ChannelMsg::get_msg());}
-    protocolMsg* pick_msg() { return static_cast<protocolMsg*>(this->ChannelMsg::pick_msg());}
 
-protected:
-    void set_inner_callback(std::function<void(WFChannelMsg<protocolMsg> *)> cb) {
-        this->inner_callback = std::move(cb);
-    }
 private:
-    std::function<void(WFChannelMsg<protocolMsg> *)> inner_callback;
-    std::function<void(WFChannelMsg<protocolMsg> *)> process;
     std::function<void(WFChannelMsg<protocolMsg> *)> callback;
+    //std::function<void(WFChannelMsg<protocolMsg> *)> process;
 
+    protocolMsg* pick_msg() { return static_cast<protocolMsg*>(this->ChannelMsg::pick_msg());}
 private:
-    virtual void eat_msg() {
+    virtual void channel_eat_msg() {
         int ret = -1;
         int state;
         auto channel = this->get_channel();
@@ -81,9 +76,9 @@ protected:
         } else {
             if (this->callback)
                 this->callback(this);
-
+            
             if (this->inner_callback)
-                this->inner_callback(this);
+                this->inner_callback(static_cast<ChannelMsg*>(this));
             
             delete this;
         }
@@ -96,7 +91,7 @@ protected:
             if (this->process)
                 this->process(this);
 
-            this->eat_msg();
+            this->channel_eat_msg();
         }
 
         this->subtask_done();
@@ -104,29 +99,22 @@ protected:
 
     virtual void handle(int state, int error) {
         if (state == WFT_STATE_SUCCESS || state == WFT_STATE_TOREPLY) {
-            //this->start();
-            auto pool = this->channel->get_resource_pool();
-            if (pool) {
-                auto cond = pool->get(this);
-                if (cond) {
-                    this->set_inner_callback([pool](WFChannelMsg<protocolMsg> *){ pool->post(nullptr);});
-                    cond->start();
-                }
-            }
+            this->start();
         } else {
             std::cout << "bug: WFChannelMsg<protocolMsg> handle state must is "
                          "WFT_STATE_SUCCESS/WFT_STATE_TOREPLY, other is Bug!!!"
                       << std::endl;
+            delete this;
         }
     }
 
 public:
-    WFChannelMsg(WFChannel *channel, std::function<void(WFChannelMsg<protocolMsg> *)> proc = nullptr)
+    WFChannelMsg(WFChannel *channel, std::function<void(ChannelMsg *)> proc = nullptr)
         : WFChannelMsg<protocolMsg>(channel, new protocolMsg, std::move(proc)) {}
 
     WFChannelMsg(WFChannel *channel, protocolMsg *msg,
-                 std::function<void(WFChannelMsg<protocolMsg> *)> proc = nullptr)
-        : ChannelMsg(channel, msg), process(std::move(proc)) {}
+                 std::function<void(ChannelMsg *)> proc = nullptr)
+        : ChannelMsg(channel, msg, std::move(proc)) {}
 
     virtual ~WFChannelMsg() {}
 };

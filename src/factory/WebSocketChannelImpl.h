@@ -104,22 +104,27 @@ public:
     virtual int process_header_req(protocol::HttpRequest *msg) { return 0; }
 
     void create_ping_timer() {
-        std::lock_guard<std::recursive_mutex> lck(this->channel->write_mutex);
-        //if (!open())
-        //    return;
+        std::unique_lock<std::recursive_mutex> lck(this->channel->write_mutex);
+        if (!open())
+            return;
 
         if (this->channel->incref() > 0) {
-            auto timer = WFTaskFactory::create_timer_task(
-                this->ping_interval * 1000,
-                std::bind(&WebSocketChannel::timer_callback, this,
-                          std::placeholders::_1),
-                [this] (unsigned long long id) { this->ping_timerid=id;}
-                );
+            lck.unlock();
+            if (this->ping_interval > 0) {
+                auto timer = WFTaskFactory::create_timer_task(
+                        this->ping_interval * 1000,
+                        std::bind(&WebSocketChannel::timer_callback, this,
+                            std::placeholders::_1),
+                        [this] (unsigned long long id) { this->ping_timerid=id;}
+                        );
 
-            this->channel->set_delete_cb(
-                std::bind(&WebSocketChannel::delete_callback, this));
-            
-            timer->start();
+                this->channel->set_delete_cb(
+                        std::bind(&WebSocketChannel::delete_callback, this));
+
+                timer->start();
+            } else {
+                this->channel->decref();
+            }
         } else {
             //std::cout << "This shouldn't happen, and if it does it's a bug!!!!"
             //          << std::endl;
