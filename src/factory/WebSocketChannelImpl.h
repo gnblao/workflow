@@ -104,12 +104,10 @@ public:
     virtual int process_header_req(protocol::HttpRequest *msg) { return 0; }
 
     void create_ping_timer() {
-        std::unique_lock<std::recursive_mutex> lck(this->channel->write_mutex);
         if (!open())
             return;
 
         if (this->channel->incref() > 0) {
-            lck.unlock();
             if (this->ping_interval > 0) {
                 auto timer = WFTaskFactory::create_timer_task(
                         this->ping_interval * 1000,
@@ -125,10 +123,6 @@ public:
             } else {
                 this->channel->decref();
             }
-        } else {
-            //std::cout << "This shouldn't happen, and if it does it's a bug!!!!"
-            //          << std::endl;
-            //this->channel->decref(1);
         }
     }
 
@@ -139,7 +133,7 @@ public:
         return this->channel->is_open();
     }
 
- protected:
+protected:
     void update_lasttime() { clock_gettime(CLOCK_MONOTONIC, &this->last_time); }
 private:
     void delete_callback() {

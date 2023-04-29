@@ -16,6 +16,9 @@ using WFChannelServerBase =
 template<typename protocolMsg, typename CMsgEntry=WFChannelMsg<protocolMsg>>
 class WFChannelClient : public WFChannelClientBase
 {
+private:
+    static_assert(std::is_base_of<MSG, protocolMsg>::value,
+                  "this protocol::ProtocolMessage must is base of protocolMsg");
 protected:
     virtual CommMessageOut *message_out()
     {
@@ -64,9 +67,8 @@ public:
 
     virtual int send(void *buf, size_t size) {
         int ret = 0;
-        auto *task = static_cast<CMsgEntry*>(this->safe_new_channel_msg(
-                [](WFChannel* ch) {return new CMsgEntry(ch);}));
 
+        auto *task = this->safe_new_channel_msg<CMsgEntry>();
         if (!task)
             return -1;
 
@@ -107,8 +109,6 @@ protected:
         return true;
     }
 
-
-
 public:
     WFChannelClient(int retry_max, channel_callback_t &&cb)
         : WFChannelClientBase(retry_max, std::move(cb)) {
@@ -130,6 +130,9 @@ protected:
 template<typename protocolMsg, typename CMsgEntry=WFChannelMsg<protocolMsg>>
 class WFChannelServer : public WFChannelServerBase
 {
+private:
+    static_assert(std::is_base_of<MSG, protocolMsg>::value,
+                  "this protocol::ProtocolMessage must is base of protocolMsg");
 public:
     virtual int process_msg(MSG *message) { 
         if (this->process_msg_fn)
@@ -146,9 +149,8 @@ public:
  
     virtual int send(void *buf, size_t size) {
         int ret = 0;
-        auto *task = static_cast<CMsgEntry*>(this->safe_new_channel_msg(
-                [](WFChannel* ch) {return new CMsgEntry(ch);}));
-
+        
+        auto *task = this->safe_new_channel_msg<CMsgEntry>();
         if (!task)
             return -1;
 
@@ -184,7 +186,7 @@ protected:
         if (this->callback)
             this->callback(this);
 
-        this->delete_this(static_cast<void *>(this));
+        this->delete_this(this);
         return series->pop();
     }
 

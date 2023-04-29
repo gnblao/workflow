@@ -27,42 +27,11 @@ public:
     }
     
     protocolMsg* get_msg() { return static_cast<protocolMsg*>(this->ChannelMsg::get_msg());}
+    protocolMsg* pick_msg() { return static_cast<protocolMsg*>(this->ChannelMsg::pick_msg());}
 
 private:
     std::function<void(WFChannelMsg<protocolMsg> *)> callback;
-    //std::function<void(WFChannelMsg<protocolMsg> *)> process;
-
-    protocolMsg* pick_msg() { return static_cast<protocolMsg*>(this->ChannelMsg::pick_msg());}
-private:
-    virtual void channel_eat_msg() {
-        int ret = -1;
-        int state;
-        auto channel = this->get_channel();
-        protocolMsg *msg = this->pick_msg();
-
-        state = this->get_state();
-        switch (state) {
-        case WFC_MSG_STATE_IN:
-            ret = channel->fanout_msg_in(msg);
-            break;
-        case WFC_MSG_STATE_OUT_LIST:
-            ret = channel->msg_out_list(msg);
-            break;
-        case WFC_MSG_STATE_OUT:
-            ret = channel->msg_out(msg);
-            break;
-        default:
-            //ret = 0;
-            break;
-        }
-
-        if (ret < 0) {
-            this->set_state(WFC_MSG_STATE_ERROR);
-            delete msg;
-        } else {
-            this->set_state(WFC_MSG_STATE_SUCCEED);
-        }
-    }
+    std::function<void(WFChannelMsg<protocolMsg> *)> process;
 
 protected:
     virtual SubTask *done() {
@@ -78,7 +47,7 @@ protected:
                 this->callback(this);
             
             if (this->inner_callback)
-                this->inner_callback(static_cast<ChannelMsg*>(this));
+                this->inner_callback(this);
             
             delete this;
         }
@@ -91,7 +60,10 @@ protected:
             if (this->process)
                 this->process(this);
 
-            this->channel_eat_msg();
+            if (this->inner_process)
+                this->inner_process(this);
+            
+            //this->channel_eat_msg();
         }
 
         this->subtask_done();
@@ -109,12 +81,12 @@ protected:
     }
 
 public:
-    WFChannelMsg(WFChannel *channel, std::function<void(ChannelMsg *)> proc = nullptr)
+    WFChannelMsg(WFChannel *channel, std::function<void (WFChannelMsg<protocolMsg> *)> proc =nullptr)
         : WFChannelMsg<protocolMsg>(channel, new protocolMsg, std::move(proc)) {}
 
     WFChannelMsg(WFChannel *channel, protocolMsg *msg,
-                 std::function<void(ChannelMsg *)> proc = nullptr)
-        : ChannelMsg(channel, msg, std::move(proc)) {}
+            std::function<void (WFChannelMsg<protocolMsg> *)> proc =nullptr)
+        : ChannelMsg(channel, msg), process() {}
 
     virtual ~WFChannelMsg() {}
 };

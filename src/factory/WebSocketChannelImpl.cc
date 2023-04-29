@@ -147,9 +147,7 @@ int WebSocketChannel::__send_frame(const char *data, int size, enum ws_opcode op
                                protocol::WebSocketFrame *in)  {
     int ret;
 
-    auto *task = static_cast<WSFrame*>(
-            this->channel->safe_new_channel_msg(
-                [](WFChannel* ch){return new WSFrame(ch);}));
+    auto *task = this->channel->safe_new_channel_msg<WSFrame>();
     if (!task)
         return -1;
     
@@ -195,9 +193,12 @@ int WebSocketChannel::process_close(protocol::WebSocketFrame *in) {
 }
 
 int WebSocketChannelClient::send_header_req() {
-    //this->set_prepare(nullptr);
     // WSHearderReq *task = new WSHearderReq(this, nullptr);
-    WSHearderReq *task = new WSHearderReq(this);
+    WSHearderReq *task = this->safe_new_channel_msg<WSHearderReq>();
+    
+    if (!task) {
+        return -1;
+    }
 
     std::string request_uri;
     std::string header_host;
@@ -255,27 +256,11 @@ int WebSocketChannelClient::send_header_req() {
     return 0;
 }
 
-//int WebSocketChannelClient::process_text(protocol::WebSocketFrame *in) {
-//    std::cout << std::string((char *)in->get_parser()->payload_data,
-//                             in->get_parser()->payload_length)
-//              << std::endl;
-//
-//    return 0;
-//}
-//
-//int WebSocketChannelServer::process_text(protocol::WebSocketFrame *in) {
-//    std::cout << "-----data len:" << in->get_parser()->payload_length << std::endl;
-//
-//    return this->send_frame(
-//        (char *)in->get_parser()->payload_data, 
-//        in->get_parser()->payload_length,
-//        in->get_parser()->payload_length,
-//        WebSocketFrameText);
-//}
-
 int WebSocketChannelServer::process_header_req(protocol::HttpRequest *req) {
-    // WSHearderRsp *task = new WSHearderRsp(this, nullptr);
-    WSHearderRsp *task = new WSHearderRsp(this);
+    //WSHearderRsp *task = new WSHearderRsp(this);
+    WSHearderRsp *task = this->safe_new_channel_msg<WSHearderRsp>();
+    if (!task)
+        return -1;
 
     protocol::HttpResponse *rsp = task->get_msg();
     rsp->set_http_version("HTTP/1.1");
@@ -301,8 +286,8 @@ int WebSocketChannelServer::process_header_req(protocol::HttpRequest *req) {
             break;
         }
     }
-
-    series_of(dynamic_cast<WSHearderReq *>(req->session))->push_back(task);
+    
+    task->start();
     return 0;
 }
 
