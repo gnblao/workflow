@@ -20,8 +20,9 @@
 #define _COMMUNICATOR_H_
 
 #include "list.h"
-#include "poller.h"
 #include "mpoller.h"
+#include "poller.h"
+
 #include <errno.h>
 #include <list>  // c++
 #include <mutex> // c++
@@ -35,7 +36,8 @@
 
 class CommMessageOut;
 struct CommConnEntry;
-class CommConnection {
+class CommConnection
+{
 public:
     CommConnEntry *entry = nullptr;
 
@@ -44,20 +46,23 @@ protected:
     friend class Communicator;
 };
 
-class CommTarget {
+class CommTarget
+{
 public:
     int init(const struct sockaddr *addr, socklen_t addrlen, int connect_timeout,
              int response_timeout);
     void deinit();
 
 public:
-    void get_addr(const struct sockaddr **addr, socklen_t *addrlen) const {
+    void get_addr(const struct sockaddr **addr, socklen_t *addrlen) const
+    {
         *addr = this->addr;
         *addrlen = this->addrlen;
     }
 
 protected:
-    void set_ssl(SSL_CTX *ssl_ctx, int ssl_connect_timeout) {
+    void set_ssl(SSL_CTX *ssl_ctx, int ssl_connect_timeout)
+    {
         this->ssl_ctx = ssl_ctx;
         this->ssl_connect_timeout = ssl_connect_timeout;
     }
@@ -92,7 +97,8 @@ public:
     friend class Communicator;
 };
 
-class CommMessageOut {
+class CommMessageOut
+{
 private:
     virtual int encode(struct iovec vectors[], int max) = 0;
 
@@ -101,7 +107,8 @@ public:
     friend class Communicator;
 };
 
-class CommMessageIn : private poller_message_t {
+class CommMessageIn : private poller_message_t
+{
 private:
     virtual int append(const void *buf, size_t *size) = 0;
 
@@ -130,9 +137,10 @@ public:
 #define CS_STATE_SUCCESS 0
 #define CS_STATE_ERROR 1
 #define CS_STATE_STOPPED 2
-#define CS_STATE_TOREPLY 3  /* for service session only. */
+#define CS_STATE_TOREPLY 3 /* for service session only. */
 
-class CommSession {
+class CommSession
+{
 private:
     virtual CommMessageOut *message_out() = 0;
     virtual CommMessageIn *message_in() = 0;
@@ -144,7 +152,8 @@ private:
 
 public:
     long long get_seq() const { return this->seq; }
-    void set_seq(long long seq){ this->seq = seq; }
+    void set_seq(long long seq) { this->seq = seq; }
+
 protected:
     CommTarget *get_target() const { return this->target; }
     CommConnection *get_connection() const { return this->conn; }
@@ -152,7 +161,7 @@ protected:
     CommMessageIn *get_message_in() const { return this->in; }
 
     /* for client channel only*/
-    virtual bool is_channel() { return false; } 
+    virtual bool is_channel() { return false; }
     CommMessageOut **get_out() { return &this->out; }
     CommMessageIn **get_in() { return &this->in; }
     CommConnection **get_conn() { return &this->conn; }
@@ -172,7 +181,8 @@ private:
     int passive;
 
 public:
-    CommSession() : target(nullptr), conn(nullptr), out(nullptr), in(nullptr) {
+    CommSession() : target(nullptr), conn(nullptr), out(nullptr), in(nullptr)
+    {
         this->passive = 0;
         this->seq = 0;
     }
@@ -182,7 +192,8 @@ public:
     friend class Communicator;
 };
 
-class CommService {
+class CommService
+{
 public:
     int init(const struct sockaddr *bind_addr, socklen_t addrlen, int listen_timeout,
              int response_timeout);
@@ -191,7 +202,8 @@ public:
     int drain(int max);
 
 public:
-    void get_addr(const struct sockaddr **addr, socklen_t *addrlen) const {
+    void get_addr(const struct sockaddr **addr, socklen_t *addrlen) const
+    {
         *addr = this->bind_addr;
         *addrlen = this->addrlen;
     }
@@ -199,7 +211,8 @@ public:
     virtual bool is_channel() { return false; }
 
 protected:
-    void set_ssl(SSL_CTX *ssl_ctx, int ssl_accept_timeout) {
+    void set_ssl(SSL_CTX *ssl_ctx, int ssl_accept_timeout)
+    {
         this->ssl_ctx = ssl_ctx;
         this->ssl_accept_timeout = ssl_accept_timeout;
     }
@@ -248,7 +261,8 @@ public:
 #define SS_STATE_ERROR 1
 #define SS_STATE_DISRUPTED 2
 
-class SleepSession {
+class SleepSession
+{
 private:
     virtual int duration(struct timespec *value) = 0;
     virtual void handle(int state, int error) = 0;
@@ -257,39 +271,10 @@ public:
     unsigned long long timerid;
 
 public:
-    SleepSession(): timerid(0) {}
+    SleepSession() : timerid(0) {}
     virtual ~SleepSession() {}
     friend class Communicator;
 };
-
-struct CommConnEntry {
-    struct list_head list;
-    CommConnection *conn;
-    long long seq;
-    int sockfd;
-    short is_channel; /* 0: not channl; 1: channl; 2: channl write; 3:channl write_cb */
-#define CONN_STATE_CONNECTING 0
-#define CONN_STATE_CONNECTED 1
-#define CONN_STATE_RECEIVING 2
-#define CONN_STATE_SUCCESS 3
-#define CONN_STATE_IDLE 4
-#define CONN_STATE_KEEPALIVE 5
-#define CONN_STATE_CLOSING 6
-#define CONN_STATE_ERROR 7
-#define CONN_STATE_ESTABLISHED 8 /*for channl*/
-    short state;
-    int error;
-    int ref;
-    struct iovec *write_iov;
-    SSL *ssl;
-    CommSession *session;
-    CommTarget *target;
-    CommService *service;
-    mpoller_t *mpoller;
-    /* Connection entry's mutex is for client session only. */
-    pthread_mutex_t mutex;
-};
-
 
 #ifdef __linux__
 #include "IOService_linux.h"
@@ -297,7 +282,8 @@ struct CommConnEntry {
 #include "IOService_thread.h"
 #endif
 
-class Communicator {
+class Communicator
+{
 public:
     int init(size_t poller_threads, size_t handler_threads);
     void deinit();

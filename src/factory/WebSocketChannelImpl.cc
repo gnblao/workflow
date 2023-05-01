@@ -6,6 +6,7 @@
  ************************************************************************/
 
 #include "WebSocketChannelImpl.h"
+
 #include "HttpMessage.h"
 #include "ProtocolMessage.h"
 #include "SubTask.h"
@@ -17,16 +18,17 @@
 #include "WebSocketMessage.h"
 #include "Workflow.h"
 #include "websocket_parser.h"
+
 #include <cstddef>
 #include <functional>
 #include <iostream>
-
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/sha.h>
 #include <string>
 
-__attribute__((unused)) static int __base64decode(std::string &base64, std::string &src) {
+__attribute__((unused)) static int __base64decode(std::string &base64, std::string &src)
+{
     size_t ret_len;
     char *p;
 
@@ -38,12 +40,14 @@ __attribute__((unused)) static int __base64decode(std::string &base64, std::stri
     if (!p)
         return -1;
 
-    if (EVP_DecodeBlock((uint8_t *)p, (uint8_t *)base64.c_str(), (int)base64.length()) == -1) {
+    if (EVP_DecodeBlock((uint8_t *)p, (uint8_t *)base64.c_str(), (int)base64.length()) == -1)
+    {
         free(p);
         return -1;
     }
 
-    if (base64.length() > 1 && ((char *)(base64.c_str()))[base64.length() - 1] == '=') {
+    if (base64.length() > 1 && ((char *)(base64.c_str()))[base64.length() - 1] == '=')
+    {
         if (base64.length() > 2 && ((char *)(base64.c_str()))[base64.length() - 2] == '=')
             ret_len -= 2;
         else
@@ -56,7 +60,8 @@ __attribute__((unused)) static int __base64decode(std::string &base64, std::stri
     return 0;
 }
 
-static int __base64encode(std::string &src, std::string &base64) {
+static int __base64encode(std::string &src, std::string &base64)
+{
     char *ret;
     size_t ret_len, max_len;
 
@@ -69,7 +74,8 @@ static int __base64encode(std::string &src, std::string &base64) {
         return -1;
 
     ret_len = EVP_EncodeBlock((uint8_t *)ret, (uint8_t *)src.c_str(), (int)src.length());
-    if (ret_len >= max_len) {
+    if (ret_len >= max_len)
+    {
         free(ret);
         return -1;
     }
@@ -81,43 +87,51 @@ static int __base64encode(std::string &src, std::string &base64) {
     return 0;
 }
 
-static std::string __base64encode(std::string &src) {
+static std::string __base64encode(std::string &src)
+{
     std::string base64;
     __base64encode(src, base64);
     return base64;
 }
 
-static inline std::string __sha1_bin(const std::string &str) {
+static inline std::string __sha1_bin(const std::string &str)
+{
     unsigned char md[20];
 
     EVP_Digest(str.c_str(), str.size(), md, NULL, EVP_sha1(), NULL);
     return std::string((const char *)md, 20);
 }
 
-int WebSocketChannel::send_ping() {
+int WebSocketChannel::send_ping()
+{
     int ping = this->gen_masking_key();
     return this->send_frame((char *)&ping, sizeof(int), sizeof(int), WebSocketFramePing);
 }
 
-int WebSocketChannel::send_close(short status_code) {
+int WebSocketChannel::send_close(short status_code)
+{
     this->handshake_status = WS_HANDSHAKE_CLOSING;
     return this->send_frame((char *)&status_code, sizeof(short), sizeof(short),
                             WebSocketFrameConnectionClose);
 }
 
-int WebSocketChannel::send_text(const char *data, size_t size) {
+int WebSocketChannel::send_text(const char *data, size_t size)
+{
 
     return this->send_frame(data, size, size, WebSocketFrameText);
 }
 
-int WebSocketChannel::send_binary(const char *data, size_t size) {
+int WebSocketChannel::send_binary(const char *data, size_t size)
+{
     return this->send_frame(data, size, size, WebSocketFrameBinary);
 }
 
 int WebSocketChannel::send_frame(const char *buf, int len, int fragment, enum ws_opcode opcode,
-                                 std::function<void()> bc) {
+                                 std::function<void()> bc)
+{
     // std::lock_guard<std::mutex> locker(mutex_);
-    if (len <= fragment) {
+    if (len <= fragment)
+    {
         return this->__send_frame(buf, len, opcode, true);
     }
 
@@ -128,7 +142,8 @@ int WebSocketChannel::send_frame(const char *buf, int len, int fragment, enum ws
 
     const char *p = buf + fragment;
     int remain = len - fragment;
-    while (remain > fragment) {
+    while (remain > fragment)
+    {
         nsend = this->__send_frame(p, fragment, WebSocketFrameContinuation, false);
         if (nsend < 0)
             return p - buf;
@@ -147,7 +162,8 @@ int WebSocketChannel::send_frame(const char *buf, int len, int fragment, enum ws
 
 int WebSocketChannel::__send_frame(
     const char *data, int size, enum ws_opcode opcode, bool fin,
-    std::function<void(WFChannelMsg<protocol::WebSocketFrame> *)> cb) {
+    std::function<void(WFChannelMsg<protocol::WebSocketFrame> *)> cb)
+{
     int ret;
 
     auto *task = this->channel->safe_new_channel_msg<WSFrame>();
@@ -157,7 +173,8 @@ int WebSocketChannel::__send_frame(
     auto msg = task->get_msg();
 
     ret = msg->set_frame(data, size, opcode, fin);
-    if (ret < 0) {
+    if (ret < 0)
+    {
         delete task;
         return -1;
     }
@@ -172,32 +189,39 @@ int WebSocketChannel::__send_frame(
     return size;
 }
 
-int WebSocketChannel::process_ping(protocol::WebSocketFrame *in = nullptr) {
+int WebSocketChannel::process_ping(protocol::WebSocketFrame *in = nullptr)
+{
     this->__send_frame((char *)in->get_parser()->payload_data, in->get_parser()->payload_length,
                        WebSocketFramePong, true, nullptr);
     return 0;
 }
 
-int WebSocketChannel::process_close(protocol::WebSocketFrame *in) {
-    if (this->handshake_status == WS_HANDSHAKE_CLOSING) {
+int WebSocketChannel::process_close(protocol::WebSocketFrame *in)
+{
+    if (this->handshake_status == WS_HANDSHAKE_CLOSING)
+    {
         this->handshake_status = WS_HANDSHAKE_CLOSED;
         this->channel->shutdown();
-    } else {
+    }
+    else
+    {
         this->handshake_status = WS_HANDSHAKE_CLOSING;
 
-        this->__send_frame(
-            (char *)in->get_parser()->payload_data, in->get_parser()->payload_length,
-            WebSocketFrameConnectionClose, true,
-            [this](WFChannelMsg<protocol::WebSocketFrame> *) { this->channel->shutdown(); });
+        this->__send_frame((char *)in->get_parser()->payload_data,
+                           in->get_parser()->payload_length, WebSocketFrameConnectionClose, true,
+                           [this](WFChannelMsg<protocol::WebSocketFrame> *)
+                           { this->channel->shutdown(); });
     }
 
     return 0;
 }
 
-int WebSocketChannelClient::send_header_req() {
+int WebSocketChannelClient::send_header_req()
+{
     WSHearderReq *task = this->safe_new_channel_msg<WSHearderReq>();
 
-    if (!task) {
+    if (!task)
+    {
         return -1;
     }
 
@@ -213,25 +237,33 @@ int WebSocketChannelClient::send_header_req() {
     else
         request_uri = "/";
 
-    if (uri_.query && uri_.query[0]) {
+    if (uri_.query && uri_.query[0])
+    {
         request_uri += "?";
         request_uri += uri_.query;
     }
 
-    if (uri_.host && uri_.host[0]) {
+    if (uri_.host && uri_.host[0])
+    {
         header_host = uri_.host;
     }
 
-    if (uri_.port && uri_.port[0]) {
+    if (uri_.port && uri_.port[0])
+    {
         int port = atoi(uri_.port);
 
-        if (is_ssl) {
-            if (port != 443) {
+        if (is_ssl)
+        {
+            if (port != 443)
+            {
                 header_host += ":";
                 header_host += uri_.port;
             }
-        } else {
-            if (port != 80) {
+        }
+        else
+        {
+            if (port != 80)
+            {
                 header_host += ":";
                 header_host += uri_.port;
             }
@@ -257,7 +289,8 @@ int WebSocketChannelClient::send_header_req() {
     return 0;
 }
 
-int WebSocketChannelServer::process_header_req(protocol::HttpRequest *req) {
+int WebSocketChannelServer::process_header_req(protocol::HttpRequest *req)
+{
     WSHearderRsp *task = this->safe_new_channel_msg<WSHearderRsp>();
     if (!task)
         return -1;
@@ -278,8 +311,10 @@ int WebSocketChannelServer::process_header_req(protocol::HttpRequest *req) {
     std::string value;
 
     protocol::HttpHeaderCursor cursor(req);
-    while (cursor.next(name, value)) {
-        if (!name.compare(WS_HTTP_SEC_KEY_K)) {
+    while (cursor.next(name, value))
+    {
+        if (!name.compare(WS_HTTP_SEC_KEY_K))
+        {
             value = __sha1_bin(value + WS_GUID_RFC4122);
             value = __base64encode(value);
             rsp->add_header_pair("Sec-WebSocket-Accept", value);

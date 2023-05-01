@@ -8,6 +8,15 @@
 #ifndef _WFCHANNEL_H_
 #define _WFCHANNEL_H_
 
+#include "CommScheduler.h"
+#include "Communicator.h"
+#include "ProtocolMessage.h"
+#include "SubTask.h"
+#include "WFResourcePool.h"
+#include "WFTask.h"
+#include "WFTaskFactory.h"
+#include "Workflow.h"
+
 #include <atomic>
 #include <cassert>
 #include <functional>
@@ -18,16 +27,8 @@
 #include <type_traits>
 #include <utility>
 
-#include "CommScheduler.h"
-#include "Communicator.h"
-#include "ProtocolMessage.h"
-#include "SubTask.h"
-#include "WFResourcePool.h"
-#include "WFTask.h"
-#include "WFTaskFactory.h"
-#include "Workflow.h"
-
-enum {
+enum
+{
     WFC_MSG_STATE_ERROR = -1,
     WFC_MSG_STATE_SUCCEED = 0,
     WFC_MSG_STATE_IN = 1,
@@ -36,7 +37,8 @@ enum {
     WFC_MSG_STATE_OUT_WRITE_LIST = 4, // only for client first msg
 };
 
-class MsgSession : public CommSession {
+class MsgSession : public CommSession
+{
 public:
     virtual protocol::ProtocolMessage *get_msg() = 0;
     virtual int get_state() const = 0;
@@ -46,12 +48,14 @@ public:
     virtual ~MsgSession(){};
 
 private:
-    virtual CommMessageOut *message_out() final {
+    virtual CommMessageOut *message_out() final
+    {
         errno = ENOSYS;
         return NULL;
     }
 
-    virtual CommMessageIn *message_in() final {
+    virtual CommMessageIn *message_in() final
+    {
         errno = ENOSYS;
         return NULL;
     }
@@ -59,7 +63,8 @@ private:
 
 class ChannelMsg;
 
-class WFChannel {
+class WFChannel
+{
 protected:
     using MSG = protocol::ProtocolMessage;
 
@@ -85,7 +90,7 @@ public:
 protected:
     // synchronization for channel and CommConnEntry
     std::recursive_mutex write_mutex;
-    
+
     std::atomic<long long> msg_in_seq;
     std::atomic<long long> msg_out_seq;
 
@@ -94,7 +99,8 @@ public:
     long long get_msg_out_seq() { return this->msg_out_seq; }
 
     template <typename CMsgEntry = ChannelMsg>
-    CMsgEntry *safe_new_channel_msg(int state = WFC_MSG_STATE_OUT) {
+    CMsgEntry *safe_new_channel_msg(int state = WFC_MSG_STATE_OUT)
+    {
         // Atomic this->ref to protect new(CMsgEntry) ctx
         // in the active sending scenario
         {
@@ -102,15 +108,16 @@ public:
             if (!this->is_open())
                 return nullptr;
 
-            if (this->incref() <= 0) {
+            if (this->incref() <= 0)
+            {
                 return nullptr;
             }
         }
-        
+
         // now is safe new
         auto task = new CMsgEntry(this);
         this->decref();
-        
+
         if (!task)
             return nullptr;
 
@@ -124,18 +131,22 @@ public:
     }
 };
 
-class ChannelMsg : public SubTask, public MsgSession {
+class ChannelMsg : public SubTask, public MsgSession
+{
 private:
     using MSG = protocol::ProtocolMessage;
 
 public:
-    void start() {
-        if (!this->channel) {
+    void start()
+    {
+        if (!this->channel)
+        {
             delete this;
             return;
         }
 
-        switch (this->state) {
+        switch (this->state)
+        {
         case WFC_MSG_STATE_IN:
             this->channel->recv_channel_msg(this);
             break;
@@ -152,14 +163,18 @@ public:
 
 public:
     explicit ChannelMsg(WFChannel *channel, MSG *msg)
-        : inner_callback(nullptr), state(WFC_MSG_STATE_OUT), error(0) {
+        : inner_callback(nullptr), state(WFC_MSG_STATE_OUT), error(0)
+    {
         assert(channel);
         assert(msg);
         this->msg = msg;
 
-        if (channel->incref() > 0) {
+        if (channel->incref() > 0)
+        {
             this->channel = channel;
-        } else {
+        }
+        else
+        {
             this->channel = nullptr;
             std::cout
                 << "!!! channel has been shut down !!!! "
@@ -169,7 +184,8 @@ public:
         }
     }
 
-    virtual ~ChannelMsg() {
+    virtual ~ChannelMsg()
+    {
         if (this->channel)
             this->channel->decref();
 
@@ -184,20 +200,20 @@ public:
 
 public:
     virtual MSG *get_msg() { return this->msg; }
-    virtual MSG *pick_msg() {
+    virtual MSG *pick_msg()
+    {
         MSG *m = this->msg;
         this->msg = nullptr;
         return m;
     }
 
 public:
-    void set_inner_callback(std::function<void(ChannelMsg *)> cb) {
+    void set_inner_callback(std::function<void(ChannelMsg *)> cb)
+    {
         this->inner_callback = std::move(cb);
     }
 
-    void set_inner_process(std::function<void(ChannelMsg *)> cb) {
-        this->inner_process = cb;
-    }
+    void set_inner_process(std::function<void(ChannelMsg *)> cb) { this->inner_process = cb; }
 
 protected:
     std::function<void(ChannelMsg *)> inner_callback;
@@ -215,7 +231,8 @@ protected:
 };
 
 template <typename ChannelEntry = WFChannel::Channel>
-class WFChannelImpl : public ChannelEntry, public WFChannel {
+class WFChannelImpl : public ChannelEntry, public WFChannel
+{
 private:
     static_assert(std::is_base_of<Channel, ChannelEntry>::value,
                   "WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>> must is "
@@ -224,7 +241,8 @@ private:
 protected:
     using channel_callback_t = std::function<void(Channel *)>;
 
-    virtual CommMessageIn *message_in() {
+    virtual CommMessageIn *message_in()
+    {
         MsgSession *session;
 
         CommMessageIn *msg = this->get_message_in();
@@ -243,14 +261,16 @@ protected:
         return msg;
     }
 
-    virtual CommMessageOut *message_out() {
+    virtual CommMessageOut *message_out()
+    {
         CommMessageOut *msg = nullptr;
 
         std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
         if (!this->is_open())
             return msg;
 
-        if (this->write_list.size()) {
+        if (this->write_list.size())
+        {
             msg = this->write_list.front();
             this->write_list.pop_front();
         }
@@ -263,7 +283,8 @@ private:
     std::atomic<bool> stop_flag{false};
 
 public:
-    virtual int shutdown() {
+    virtual int shutdown()
+    {
         std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
         if (this->stop_flag)
             return -1;
@@ -272,7 +293,8 @@ public:
         return 0;
     }
 
-    virtual bool is_open(int is_deep = 0) {
+    virtual bool is_open(int is_deep = 0)
+    {
         CommConnection *conn;
 
         // for performance
@@ -290,27 +312,32 @@ public:
         if (!conn || !conn->entry)
             return false;
 
-        switch (conn->entry->state) {
-        case CONN_STATE_ESTABLISHED:
-        case CONN_STATE_CONNECTING:
-            return true;
-        default:
-            return false;
-        }
+        //switch (conn->entry->state)
+        //{
+        //case CONN_STATE_ESTABLISHED:
+        //case CONN_STATE_CONNECTING:
+        //    return true;
+        //default:
+        //    return false;
+        //}
+        //return false;
 
-        return false;
+        return true;
     };
 
-    virtual int incref() {
+    virtual int incref()
+    {
         int value = this->ref;
 
-        while (value > 0 && !this->ref.compare_exchange_strong(value, value + 1)) {
+        while (value > 0 && !this->ref.compare_exchange_strong(value, value + 1))
+        {
         }
 
         return value;
     }
 
-    virtual void decref() {
+    virtual void decref()
+    {
         if (this->ref.fetch_sub(1) == 1)
             delete this;
     }
@@ -323,11 +350,14 @@ public:
     virtual int process_msg(MSG *msg) { return 0; }
 
 public:
-    virtual int recv_channel_msg(ChannelMsg *task) {
+    virtual int recv_channel_msg(ChannelMsg *task)
+    {
         auto *pool = this->get_in_resource_pool();
-        if (pool) {
+        if (pool)
+        {
             auto *cond = pool->get(task);
-            if (cond) {
+            if (cond)
+            {
                 task->set_inner_process(std::bind(&WFChannelImpl<ChannelEntry>::channel_eat_msg,
                                                   this, std::placeholders::_1));
                 task->set_inner_callback([pool](ChannelMsg *) { pool->post(nullptr); });
@@ -339,11 +369,14 @@ public:
         return 0;
     }
 
-    virtual int send_channel_msg(ChannelMsg *task) {
+    virtual int send_channel_msg(ChannelMsg *task)
+    {
         auto *pool = this->get_out_resource_pool();
-        if (pool) {
+        if (pool)
+        {
             auto *cond = pool->get(task);
-            if (cond) {
+            if (cond)
+            {
                 task->set_inner_process(std::bind(&WFChannelImpl<ChannelEntry>::channel_eat_msg,
                                                   this, std::placeholders::_1));
                 task->set_inner_callback([pool](ChannelMsg *) { pool->post(nullptr); });
@@ -357,7 +390,8 @@ public:
 protected:
     /*for client*/
     explicit WFChannelImpl(int retry_max, channel_callback_t &&cb)
-        : ChannelEntry(retry_max, std::move(cb)), in_msg_pool(1), out_msg_pool(1) {
+        : ChannelEntry(retry_max, std::move(cb)), in_msg_pool(1), out_msg_pool(1)
+    {
         this->msg_in_seq = 0;
         this->msg_out_seq = 0;
         this->ref = 1;
@@ -368,7 +402,8 @@ protected:
 
     /*for server*/
     explicit WFChannelImpl(CommScheduler *scheduler, channel_callback_t &&cb)
-        : ChannelEntry(nullptr, scheduler, std::move(cb)), in_msg_pool(1), out_msg_pool(1) {
+        : ChannelEntry(nullptr, scheduler, std::move(cb)), in_msg_pool(1), out_msg_pool(1)
+    {
         this->msg_in_seq = 0;
         this->msg_out_seq = 0;
         this->ref = 1;
@@ -379,7 +414,8 @@ protected:
 
 private:
     using __MSG = std::pair<long long, MSG *>;
-    class cmp {
+    class cmp
+    {
     public:
         bool operator()(__MSG a, __MSG b) { return a.first > b.first; }
     };
@@ -407,7 +443,8 @@ private:
 
     WFResourcePool *get_out_resource_pool() { return &this->out_msg_pool; }
 
-    int fanout_msg_in(MSG *in) {
+    int fanout_msg_in(MSG *in)
+    {
         int ret;
         long long seq = in->get_seq();
         CommSession *cur_session = in->session;
@@ -416,7 +453,8 @@ private:
         assert(this->heap_in_seq <= seq);
 
         fanout_heap_in.emplace(std::make_pair(seq, in));
-        while (fanout_heap_in.top().first == this->heap_in_seq) {
+        while (fanout_heap_in.top().first == this->heap_in_seq)
+        {
             auto x = fanout_heap_in.top();
             fanout_heap_in.pop();
             this->heap_in_seq++;
@@ -425,38 +463,43 @@ private:
                 heap_in_list.push_back(x.second);
         }
 
-        while (heap_in_list.size()) {
+        while (heap_in_list.size())
+        {
             MSG *msg = heap_in_list.front();
 
             msg->session = cur_session;
             ret = process_msg(msg);
             if (ret < 0)
                 break;
-            
+
             heap_in_list.pop_front();
         }
 
         return 0;
     }
 
-    int fanout_msg_out(MSG *out, int state = WFC_MSG_STATE_OUT) {
+    int fanout_msg_out(MSG *out, int state = WFC_MSG_STATE_OUT)
+    {
         int ret;
         long long seq = out->get_seq();
         // std::lock_guard<std::mutex> lck(this->out_mutex);
-        
-        if (state == WFC_MSG_STATE_OUT_LIST) {
+
+        if (state == WFC_MSG_STATE_OUT_LIST)
+        {
             heap_out_list.push_back(out);
             out = nullptr;
         }
 
-        if (state == WFC_MSG_STATE_OUT_WRITE_LIST) {
+        if (state == WFC_MSG_STATE_OUT_WRITE_LIST)
+        {
             this->msg_out(out, state);
             out = nullptr;
         }
 
         assert(this->heap_out_seq <= seq);
         fanout_heap_out.emplace(std::make_pair(seq, out));
-        while (fanout_heap_out.top().first == this->heap_out_seq) {
+        while (fanout_heap_out.top().first == this->heap_out_seq)
+        {
             auto x = fanout_heap_out.top();
             fanout_heap_out.pop();
 
@@ -464,36 +507,41 @@ private:
             if (x.second)
                 heap_out_list.push_back(x.second);
         }
-        
-        while (heap_out_list.size()) {
+
+        while (heap_out_list.size())
+        {
             MSG *msg = heap_out_list.front();
 
             ret = this->msg_out(msg);
-            if (ret < 0) {
+            if (ret < 0)
+            {
                 break;
             }
-            
+
             heap_out_list.pop_front();
         }
 
         return 0;
     }
 
-    int msg_out(MSG *out, int flag=WFC_MSG_STATE_OUT) {
+    int msg_out(MSG *out, int flag = WFC_MSG_STATE_OUT)
+    {
         int ret;
-        
+
         std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
         this->write_list.push_back(out);
 
         if (flag == WFC_MSG_STATE_OUT_WRITE_LIST)
             return 0;
 
-        if (!this->is_open(1)) {
+        if (!this->is_open(1))
+        {
             return 0;
         }
 
         ret = this->get_scheduler()->channel_send_one(this);
-        if (ret < 0) {
+        if (ret < 0)
+        {
             this->shutdown();
         }
 
@@ -501,14 +549,16 @@ private:
     }
 
 private:
-    virtual void channel_eat_msg(ChannelMsg *task) {
+    virtual void channel_eat_msg(ChannelMsg *task)
+    {
         int ret = -1;
         int state;
         MSG *msg = task->pick_msg();
         msg->set_seq(task->get_seq());
 
         state = task->get_state();
-        switch (state) {
+        switch (state)
+        {
         case WFC_MSG_STATE_IN:
             ret = this->fanout_msg_in(msg);
             break;
@@ -516,16 +566,19 @@ private:
         case WFC_MSG_STATE_OUT_LIST:
         case WFC_MSG_STATE_OUT_WRITE_LIST:
             ret = this->fanout_msg_out(msg, state);
-            //ret = this->msg_out(msg, state);
+            // ret = this->msg_out(msg, state);
             break;
         default:
             break;
         }
 
-        if (ret < 0) {
+        if (ret < 0)
+        {
             task->set_state(WFC_MSG_STATE_ERROR);
             delete msg;
-        } else {
+        }
+        else
+        {
             task->set_state(WFC_MSG_STATE_SUCCEED);
         }
     }
@@ -537,11 +590,13 @@ public:
     virtual void set_delete_cb(std::function<void()> bc) { this->delete_callback = std::move(bc); }
 
 protected:
-    virtual WFConnection *get_connection() const {
+    virtual WFConnection *get_connection() const
+    {
         return (WFConnection *)this->CommSession::get_connection();
     }
-    
-    virtual void delete_this(void *t) {
+
+    virtual void delete_this(void *t)
+    {
         std::lock_guard<std::recursive_mutex> lck(this->write_mutex);
         if (this->stop_flag.exchange(true))
             return;
@@ -550,8 +605,10 @@ protected:
         *conn = nullptr;
 
         CommMessageIn *in = this->get_message_in();
-        if (in) {
-            if (in->session) {
+        if (in)
+        {
+            if (in->session)
+            {
                 delete in->session;
                 in->session = nullptr;
             }
@@ -565,32 +622,38 @@ protected:
         this->decref();
     }
 
-    virtual ~WFChannelImpl() {
-        while (!fanout_heap_in.empty()) {
+    virtual ~WFChannelImpl()
+    {
+        while (!fanout_heap_in.empty())
+        {
             auto _msg = fanout_heap_in.top();
             fanout_heap_in.pop();
 
             delete _msg.second;
         }
 
-        for (auto x : heap_in_list) {
+        for (auto x : heap_in_list)
+        {
             heap_in_list.remove(x);
             delete x;
         }
 
-        while (!fanout_heap_out.empty()) {
+        while (!fanout_heap_out.empty())
+        {
             auto _msg = fanout_heap_out.top();
             fanout_heap_out.pop();
 
             delete _msg.second;
         }
 
-        for (auto x : heap_out_list) {
+        for (auto x : heap_out_list)
+        {
             heap_out_list.remove(x);
             delete x;
         }
 
-        for (auto x : write_list) {
+        for (auto x : write_list)
+        {
             write_list.remove(x);
             delete x;
         }
@@ -608,7 +671,8 @@ protected:
         */
 
         CommMessageOut *out = this->get_message_out();
-        if (out) {
+        if (out)
+        {
             delete out;
             *(this->get_out()) = nullptr;
         }

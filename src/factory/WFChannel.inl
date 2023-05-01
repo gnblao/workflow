@@ -6,6 +6,7 @@
  ************************************************************************/
 
 #include "WFChannelMsg.h"
+
 #include <functional>
 #include <memory>
 
@@ -15,13 +16,15 @@ using WFChannelServerBase =
     WFChannelImpl<WFNetworkTask<protocol::ProtocolMessage, protocol::ProtocolMessage>>;
 
 template <typename protocolMsg, typename CMsgEntry = WFChannelMsg<protocolMsg>>
-class WFChannelClient : public WFChannelClientBase {
+class WFChannelClient : public WFChannelClientBase
+{
 private:
     static_assert(std::is_base_of<MSG, protocolMsg>::value,
                   "this protocol::ProtocolMessage must is base of protocolMsg");
 
 protected:
-    virtual CommMessageOut *message_out() {
+    virtual CommMessageOut *message_out()
+    {
         /* By using prepare function, users can modify request after
          * the connection is established. */
         if (this->prepare)
@@ -32,22 +35,27 @@ protected:
 
     virtual int first_timeout() { return this->receive_timeout(); }
 
-    void set_prepare_once(std::function<void()> fn) {
-        this->WFChannelClientBase::set_prepare([fn, this](Channel *) {
-            fn();
-            this->WFChannelClientBase::set_prepare(nullptr);
-        });
+    void set_prepare_once(std::function<void()> fn)
+    {
+        this->WFChannelClientBase::set_prepare(
+            [fn, this](Channel *)
+            {
+                fn();
+                this->WFChannelClientBase::set_prepare(nullptr);
+            });
     }
 
 public:
-    virtual int process_msg(MSG *message) {
+    virtual int process_msg(MSG *message)
+    {
         if (this->process_msg_fn)
             return this->process_msg_fn(this, (protocolMsg *)message);
 
         return 0;
     }
 
-    virtual MsgSession *new_msg_session() {
+    virtual MsgSession *new_msg_session()
+    {
         MsgSession *session = this->safe_new_channel_msg<CMsgEntry>(WFC_MSG_STATE_IN);
 
         return session;
@@ -55,11 +63,13 @@ public:
 
     void set_frist_msg_fn(std::function<ChannelMsg *(WFChannel *)> fn) { this->frist_msg_fn = fn; }
 
-    void set_process_msg_fn(std::function<int(WFChannel *, protocolMsg *)> fn) {
+    void set_process_msg_fn(std::function<int(WFChannel *, protocolMsg *)> fn)
+    {
         this->process_msg_fn = fn;
     }
 
-    virtual int send(void *buf, size_t size) {
+    virtual int send(void *buf, size_t size)
+    {
         int ret = 0;
 
         auto *task = this->safe_new_channel_msg<CMsgEntry>(WFC_MSG_STATE_OUT);
@@ -80,8 +90,10 @@ private:
     std::function<int(WFChannel *, protocolMsg *)> process_msg_fn;
 
 protected:
-    int send_frist_msg() {
-        if (this->frist_msg_fn) {
+    int send_frist_msg()
+    {
+        if (this->frist_msg_fn)
+        {
             ChannelMsg *task = this->frist_msg_fn(this);
             if (!task)
                 return -1;
@@ -94,7 +106,8 @@ protected:
     }
 
 protected:
-    virtual bool init_success() {
+    virtual bool init_success()
+    {
         bool is_ssl = false;
 
         if (uri_.scheme && strcasecmp(uri_.scheme, "wss") == 0)
@@ -106,7 +119,8 @@ protected:
 
 public:
     WFChannelClient(int retry_max, channel_callback_t &&cb)
-        : WFChannelClientBase(retry_max, std::move(cb)) {
+        : WFChannelClientBase(retry_max, std::move(cb))
+    {
 
         this->set_keep_alive(-1);
         this->set_receive_timeout(-1);
@@ -122,26 +136,30 @@ protected:
 };
 
 template <typename protocolMsg, typename CMsgEntry = WFChannelMsg<protocolMsg>>
-class WFChannelServer : public WFChannelServerBase {
+class WFChannelServer : public WFChannelServerBase
+{
 private:
     static_assert(std::is_base_of<MSG, protocolMsg>::value,
                   "this protocol::ProtocolMessage must is base of protocolMsg");
 
 public:
-    virtual int process_msg(MSG *message) {
+    virtual int process_msg(MSG *message)
+    {
         if (this->process_msg_fn)
             return this->process_msg_fn(this, (protocolMsg *)message);
 
         return 0;
     }
 
-    virtual MsgSession *new_msg_session() {
+    virtual MsgSession *new_msg_session()
+    {
         MsgSession *session = this->safe_new_channel_msg<CMsgEntry>(WFC_MSG_STATE_IN);
 
         return session;
     }
 
-    virtual int send(void *buf, size_t size) {
+    virtual int send(void *buf, size_t size)
+    {
         int ret = 0;
 
         auto *task = this->safe_new_channel_msg<CMsgEntry>(WFC_MSG_STATE_OUT);
@@ -156,7 +174,8 @@ public:
     }
 
 public:
-    void set_process_msg_fn(std::function<int(WFChannel *, protocolMsg *)> fn) {
+    void set_process_msg_fn(std::function<int(WFChannel *, protocolMsg *)> fn)
+    {
         this->process_msg_fn = fn;
     }
 
@@ -168,7 +187,8 @@ protected:
 
     virtual void handle(int state, int error) { this->start(); }
 
-    virtual SubTask *done() {
+    virtual SubTask *done()
+    {
         SeriesWork *series = series_of(this);
         if (this->callback)
             this->callback(this);
@@ -182,7 +202,8 @@ protected:
 public:
     explicit WFChannelServer(CommScheduler *scheduler, CommService *service = nullptr,
                              channel_callback_t &&cb = nullptr)
-        : WFChannelServerBase(scheduler, std::move(cb)) {
+        : WFChannelServerBase(scheduler, std::move(cb))
+    {
         this->set_keep_alive(-1);
         this->set_receive_timeout(-1);
         this->set_send_timeout(-1);
