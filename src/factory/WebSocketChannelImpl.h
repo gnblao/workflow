@@ -11,16 +11,16 @@
 #include "HttpMessage.h"
 #include "HttpUtil.h"
 #include "ProtocolMessage.h"
-#include "WFGlobal.h"
-#include "WebSocketMessage.h"
 #include "WFChannel.h"
 #include "WFChannelMsg.h"
+#include "WFGlobal.h"
+#include "WebSocketMessage.h"
 #include "Workflow.h"
 #include <algorithm>
 #include <atomic>
-#include <ctime>
 #include <cassert>
 #include <cstddef>
+#include <ctime>
 #include <functional>
 #include <iostream>
 #include <mutex>
@@ -49,13 +49,13 @@ public:
     void set_sec_protocol(const std::string &protocol) { this->sec_protocol = protocol; }
     void set_sec_version(const std::string &version) { this->sec_version = version; }
 
-    void set_process_binary_fn(std::function<void(WebSocketChannel*, protocolMsg *in)> fn) {
-        this->process_binary_fn = fn; 
+    void set_process_binary_fn(std::function<void(WebSocketChannel *, protocolMsg *in)> fn) {
+        this->process_binary_fn = fn;
     }
-    void set_process_text_fn(std::function<void(WebSocketChannel*, protocolMsg *in)> fn) {
-        this->process_text_fn = fn; 
+    void set_process_text_fn(std::function<void(WebSocketChannel *, protocolMsg *in)> fn) {
+        this->process_text_fn = fn;
     }
-    
+
     const std::string get_sec_protocol() const { return this->sec_protocol; }
     const std::string get_sec_version() const { return this->sec_version; }
 
@@ -68,9 +68,9 @@ public:
 
         return this->gen();
     }
-   
+
     // client
-    //virtual int send_header_req(WFChannel *) { return 0; }
+    // virtual int send_header_req(WFChannel *) { return 0; }
     virtual int send_header_req() { return 0; }
     virtual int process_header_rsp(protocol::HttpResponse *message) { return 0; }
 
@@ -79,25 +79,25 @@ public:
     virtual int send_close(short status_code);
     virtual int send_text(const char *data, size_t size);
     virtual int send_binary(const char *data, size_t size);
-    
-    virtual int send_frame(const char *data, int size, int frame_size, 
-            enum ws_opcode opcode, std::function<void()> cb = nullptr);
-    virtual int __send_frame(const char *data, int size, enum ws_opcode opcode, bool fin, 
-            std::function<void(WFChannelMsg<protocolMsg> *)> cb = nullptr, protocolMsg *in = nullptr);
+
+    virtual int send_frame(const char *data, int size, int frame_size, enum ws_opcode opcode,
+                           std::function<void()> cb = nullptr);
+    virtual int __send_frame(const char *data, int size, enum ws_opcode opcode, bool fin,
+                             std::function<void(WFChannelMsg<protocolMsg> *)> cb = nullptr);
 
     virtual int process_ping(protocolMsg *msg);
     virtual int process_pong(protocolMsg *msg) { return 0; }
     virtual int process_close(protocolMsg *msg);
 
-    virtual int process_text(protocolMsg *msg) { 
+    virtual int process_text(protocolMsg *msg) {
         if (this->process_text_fn)
             this->process_text_fn(this, msg);
-        return 0; 
+        return 0;
     }
-    virtual int process_binary(protocolMsg *msg) { 
+    virtual int process_binary(protocolMsg *msg) {
         if (this->process_binary_fn)
             this->process_binary_fn(this, msg);
-        return 0; 
+        return 0;
     }
 
     // server
@@ -110,14 +110,11 @@ public:
         if (this->channel->incref() > 0) {
             if (this->ping_interval > 0) {
                 auto timer = WFTaskFactory::create_timer_task(
-                        this->ping_interval * 1000,
-                        std::bind(&WebSocketChannel::timer_callback, this,
-                            std::placeholders::_1),
-                        [this] (unsigned long long id) { this->ping_timerid=id;}
-                        );
+                    this->ping_interval * 1000,
+                    std::bind(&WebSocketChannel::timer_callback, this, std::placeholders::_1),
+                    [this](unsigned long long id) { this->ping_timerid = id; });
 
-                this->channel->set_delete_cb(
-                        std::bind(&WebSocketChannel::delete_callback, this));
+                this->channel->set_delete_cb(std::bind(&WebSocketChannel::delete_callback, this));
 
                 timer->start();
             } else {
@@ -135,17 +132,18 @@ public:
 
 protected:
     void update_lasttime() { clock_gettime(CLOCK_MONOTONIC, &this->last_time); }
+
 private:
     void delete_callback() {
         if (this->ping_timerid) {
             WFGlobal::get_scheduler()->unsleep(this->ping_timerid);
         }
     }
-    
+
     void timer_callback(WFTimerTask *timer) {
         this->ping_timerid = 0;
         this->channel->set_delete_cb(nullptr);
-        
+
         if (timer->get_state() == SS_STATE_COMPLETE) {
             if (this->channel->is_open() && this->ping_interval < update_interval())
                 this->send_ping();
@@ -153,7 +151,7 @@ private:
             if (this->ping_interval > 0 && this->channel->is_open())
                 this->create_ping_timer();
         }
-        
+
         this->channel->decref();
     }
 
@@ -180,7 +178,7 @@ public:
 
 protected:
     struct timespec last_time;
-    int ping_interval = 5*1000; /*millisecond*/
+    int ping_interval = 5 * 1000; /*millisecond*/
     size_t size_limit;
     bool auto_gen_mkey; // random Masking-Key
     std::mt19937 gen;
@@ -188,9 +186,9 @@ protected:
     std::string sec_version{"13"};    // Sec-WebSocket-Version
 
     /*uplevel api*/
-    std::function<void(WebSocketChannel*, protocolMsg *in)> process_text_fn;
-    std::function<void(WebSocketChannel*, protocolMsg *in)> process_binary_fn;
-    
+    std::function<void(WebSocketChannel *, protocolMsg *in)> process_text_fn;
+    std::function<void(WebSocketChannel *, protocolMsg *in)> process_binary_fn;
+
     enum {
         WS_HANDSHAKE_UNDEFINED = -1,
         WS_HANDSHAKE_OPEN,
@@ -208,7 +206,7 @@ class WebSocketChannelClient : public WebSocketChannelClientBase, public WebSock
 public:
     virtual int send_header_req();
 
-    virtual int process_header_rsp(protocol::HttpResponse *message) { return 0;};
+    virtual int process_header_rsp(protocol::HttpResponse *message) { return 0; };
     virtual int process_msg(MSG *message) {
         if (message->get_seq() > 0) {
             protocolMsg *msg = (protocolMsg *)message;
@@ -248,12 +246,10 @@ public:
 public:
     virtual MsgSession *new_msg_session() {
         MsgSession *session = nullptr;
-        if (this->get_msg_seq() == 0)
-            // session = new WSHearderRsp(this, nullptr);
-            session = new WSHearderRsp(this);
+        if (this->get_msg_in_seq() == 0)
+            session = this->safe_new_channel_msg<WSHearderRsp>(WFC_MSG_STATE_IN);
         else {
-            // session = new WSFrame(this, nullptr);
-            session = new WSFrame(this);
+            session = this->safe_new_channel_msg<WSFrame>(WFC_MSG_STATE_IN);
         }
 
         return session;
@@ -272,18 +268,17 @@ protected:
 
 public:
     WebSocketChannelClient(channel_callback_t cb = nullptr)
-        : WebSocketChannelClientBase(0,std::move(cb)), WebSocketChannel(this) {
+        : WebSocketChannelClientBase(0, std::move(cb)), WebSocketChannel(this) {
         this->auto_gen_mkey = true;
 
         this->set_keep_alive(-1);
         this->set_receive_timeout(-1);
         this->set_send_timeout(-1);
 
-        this->set_prepare_once(
-            std::bind(&WebSocketChannelClient::send_header_req, this));
+        this->set_prepare_once(std::bind(&WebSocketChannelClient::send_header_req, this));
     }
 
-    virtual ~WebSocketChannelClient(){}
+    virtual ~WebSocketChannelClient() {}
 };
 
 class WebSocketChannelServer : public WebSocketChannelServerBase, public WebSocketChannel {
@@ -327,12 +322,10 @@ public:
 public:
     virtual MsgSession *new_msg_session() {
         MsgSession *session = nullptr;
-        if (this->get_msg_seq() == 0)
-            // session = new WSHearderReq(this, nullptr);
-            session = new WSHearderReq(this);
+        if (this->get_msg_in_seq() == 0)
+            session = this->safe_new_channel_msg<WSHearderReq>(WFC_MSG_STATE_IN);
         else {
-            // session = new WSFrame(this, nullptr);
-            session = new WSFrame(this);
+            session = this->safe_new_channel_msg<WSFrame>(WFC_MSG_STATE_IN);
         }
 
         return session;
@@ -350,7 +343,7 @@ public:
         this->ping_interval = 5 * 1000;
     }
 
-    virtual ~WebSocketChannelServer(){}
+    virtual ~WebSocketChannelServer() {}
 };
 
 #endif // __FACTORY_WEBSOCKETCHANNELIMPL_H_

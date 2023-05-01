@@ -17,11 +17,12 @@
 #include <string>
 
 using CMsgEntry = WFChannelMsg<protocol::StreamMessage>;
+
 CMsgEntry * frist_msg_fn(WFChannel *channel) {
     size_t len;
     std::string s={"gdhjahgjgasjhfdhasfghasfhsaasgas"};
     
-    auto task = new CMsgEntry(channel);
+    auto task = channel->safe_new_channel_msg<CMsgEntry>(WFC_MSG_STATE_OUT_WRITE_LIST);
     if (task) {
         auto msg = task->get_msg();
 

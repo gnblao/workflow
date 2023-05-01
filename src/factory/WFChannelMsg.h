@@ -19,15 +19,14 @@
 #include "WFTask.h"
 #include "Workflow.h"
 
-template <typename protocolMsg> 
-class WFChannelMsg : public ChannelMsg {
+template <typename protocolMsg> class WFChannelMsg : public ChannelMsg {
 public:
     void set_callback(std::function<void(WFChannelMsg<protocolMsg> *)> cb) {
         this->callback = std::move(cb);
     }
-    
-    protocolMsg* get_msg() { return static_cast<protocolMsg*>(this->ChannelMsg::get_msg());}
-    protocolMsg* pick_msg() { return static_cast<protocolMsg*>(this->ChannelMsg::pick_msg());}
+
+    protocolMsg *get_msg() { return static_cast<protocolMsg *>(this->ChannelMsg::get_msg()); }
+    protocolMsg *pick_msg() { return static_cast<protocolMsg *>(this->ChannelMsg::pick_msg()); }
 
 private:
     std::function<void(WFChannelMsg<protocolMsg> *)> callback;
@@ -36,22 +35,14 @@ private:
 protected:
     virtual SubTask *done() {
         SeriesWork *series = series_of(this);
-        
-        if (this->get_state() == WFC_MSG_STATE_SUCCEED) {
-            this->set_state(WFC_MSG_STATE_DELAYED);
-            
-            //series_of(this)->set_last_task(this);
-            series_of(this)->push_back(this);
-        } else {
-            if (this->callback)
-                this->callback(this);
-            
-            if (this->inner_callback)
-                this->inner_callback(this);
-            
-            delete this;
-        }
-        
+
+        if (this->callback)
+            this->callback(this);
+
+        if (this->inner_callback)
+            this->inner_callback(this);
+
+        delete this;
         return series->pop();
     }
 
@@ -62,8 +53,8 @@ protected:
 
             if (this->inner_process)
                 this->inner_process(this);
-            
-            //this->channel_eat_msg();
+
+            // this->channel_eat_msg();
         }
 
         this->subtask_done();
@@ -81,11 +72,12 @@ protected:
     }
 
 public:
-    WFChannelMsg(WFChannel *channel, std::function<void (WFChannelMsg<protocolMsg> *)> proc =nullptr)
+    WFChannelMsg(WFChannel *channel,
+                 std::function<void(WFChannelMsg<protocolMsg> *)> proc = nullptr)
         : WFChannelMsg<protocolMsg>(channel, new protocolMsg, std::move(proc)) {}
 
     WFChannelMsg(WFChannel *channel, protocolMsg *msg,
-            std::function<void (WFChannelMsg<protocolMsg> *)> proc =nullptr)
+                 std::function<void(WFChannelMsg<protocolMsg> *)> proc = nullptr)
         : ChannelMsg(channel, msg), process() {}
 
     virtual ~WFChannelMsg() {}

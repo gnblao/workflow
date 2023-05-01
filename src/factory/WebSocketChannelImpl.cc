@@ -99,15 +99,14 @@ int WebSocketChannel::send_ping() {
     return this->send_frame((char *)&ping, sizeof(int), sizeof(int), WebSocketFramePing);
 }
 
-
 int WebSocketChannel::send_close(short status_code) {
     this->handshake_status = WS_HANDSHAKE_CLOSING;
     return this->send_frame((char *)&status_code, sizeof(short), sizeof(short),
-            WebSocketFrameConnectionClose);
+                            WebSocketFrameConnectionClose);
 }
 
 int WebSocketChannel::send_text(const char *data, size_t size) {
-   
+
     return this->send_frame(data, size, size, WebSocketFrameText);
 }
 
@@ -115,53 +114,57 @@ int WebSocketChannel::send_binary(const char *data, size_t size) {
     return this->send_frame(data, size, size, WebSocketFrameBinary);
 }
 
-int WebSocketChannel::send_frame(const char* buf, int len, int fragment, enum ws_opcode opcode, std::function<void()> bc) {
-    //std::lock_guard<std::mutex> locker(mutex_);
+int WebSocketChannel::send_frame(const char *buf, int len, int fragment, enum ws_opcode opcode,
+                                 std::function<void()> bc) {
+    // std::lock_guard<std::mutex> locker(mutex_);
     if (len <= fragment) {
         return this->__send_frame(buf, len, opcode, true);
     }
 
     // first fragment
     int nsend = this->__send_frame(buf, fragment, opcode, false);
-    if (nsend < 0) return nsend;
+    if (nsend < 0)
+        return nsend;
 
-    const char* p = buf + fragment;
+    const char *p = buf + fragment;
     int remain = len - fragment;
     while (remain > fragment) {
         nsend = this->__send_frame(p, fragment, WebSocketFrameContinuation, false);
-        if (nsend < 0) return p - buf;
+        if (nsend < 0)
+            return p - buf;
         p += fragment;
         remain -= fragment;
     }
 
     // last fragment
     nsend = this->__send_frame(p, remain, WebSocketFrameContinuation, true,
-            [bc](WFChannelMsg<protocol::WebSocketFrame>*){bc();});
-    if (nsend < 0) return p - buf;
+                               [bc](WFChannelMsg<protocol::WebSocketFrame> *) { bc(); });
+    if (nsend < 0)
+        return p - buf;
 
     return len;
 }
 
-int WebSocketChannel::__send_frame(const char *data, int size, enum ws_opcode opcode, bool fin,
-                               std::function<void(WFChannelMsg<protocol::WebSocketFrame>*)> cb, 
-                               protocol::WebSocketFrame *in)  {
+int WebSocketChannel::__send_frame(
+    const char *data, int size, enum ws_opcode opcode, bool fin,
+    std::function<void(WFChannelMsg<protocol::WebSocketFrame> *)> cb) {
     int ret;
 
     auto *task = this->channel->safe_new_channel_msg<WSFrame>();
     if (!task)
         return -1;
-    
+
     auto msg = task->get_msg();
-    
+
     ret = msg->set_frame(data, size, opcode, fin);
     if (ret < 0) {
         delete task;
         return -1;
     }
 
-    if (!this->channel->is_server()) 
+    if (!this->channel->is_server())
         msg->set_masking_key(this->gen_masking_key());
-   
+
     if (cb)
         task->set_callback(std::move(cb));
 
@@ -170,9 +173,8 @@ int WebSocketChannel::__send_frame(const char *data, int size, enum ws_opcode op
 }
 
 int WebSocketChannel::process_ping(protocol::WebSocketFrame *in = nullptr) {
-    this->__send_frame(
-            (char *)in->get_parser()->payload_data, in->get_parser()->payload_length,
-            WebSocketFramePong, true, nullptr, in);
+    this->__send_frame((char *)in->get_parser()->payload_data, in->get_parser()->payload_length,
+                       WebSocketFramePong, true, nullptr);
     return 0;
 }
 
@@ -185,17 +187,16 @@ int WebSocketChannel::process_close(protocol::WebSocketFrame *in) {
 
         this->__send_frame(
             (char *)in->get_parser()->payload_data, in->get_parser()->payload_length,
-            WebSocketFrameConnectionClose, true, 
-            [this](WFChannelMsg<protocol::WebSocketFrame> *) { this->channel->shutdown(); }, in);
+            WebSocketFrameConnectionClose, true,
+            [this](WFChannelMsg<protocol::WebSocketFrame> *) { this->channel->shutdown(); });
     }
 
     return 0;
 }
 
 int WebSocketChannelClient::send_header_req() {
-    // WSHearderReq *task = new WSHearderReq(this, nullptr);
     WSHearderReq *task = this->safe_new_channel_msg<WSHearderReq>();
-    
+
     if (!task) {
         return -1;
     }
@@ -251,13 +252,12 @@ int WebSocketChannelClient::send_header_req() {
     if (this->get_sec_version().length())
         req->add_header_pair(WS_HTTP_SEC_VERSION_K, this->get_sec_version());
 
-    task->set_state(WFC_MSG_STATE_OUT_LIST);
+    task->set_state(WFC_MSG_STATE_OUT_WRITE_LIST);
     task->start();
     return 0;
 }
 
 int WebSocketChannelServer::process_header_req(protocol::HttpRequest *req) {
-    //WSHearderRsp *task = new WSHearderRsp(this);
     WSHearderRsp *task = this->safe_new_channel_msg<WSHearderRsp>();
     if (!task)
         return -1;
@@ -286,7 +286,7 @@ int WebSocketChannelServer::process_header_req(protocol::HttpRequest *req) {
             break;
         }
     }
-    
+
     task->start();
     return 0;
 }
