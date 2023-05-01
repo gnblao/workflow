@@ -28,31 +28,31 @@
 class SleepRequest : public SubTask, public SleepSession
 {
 public:
-    SleepRequest(CommScheduler *scheduler) { this->scheduler = scheduler; }
+	SleepRequest(CommScheduler *scheduler) { this->scheduler = scheduler; }
 
 public:
-    virtual void dispatch()
-    {
-        if (this->scheduler->sleep(this) < 0)
-            this->handle(SS_STATE_ERROR, errno);
-    }
+	virtual void dispatch()
+	{
+		if (this->scheduler->sleep(this) < 0)
+			this->handle(SS_STATE_ERROR, errno);
+	}
 
-    virtual void unsleep() { this->scheduler->unsleep(this); }
-
-protected:
-    int state;
-    int error;
+	virtual void unsleep() { this->scheduler->unsleep(this); }
 
 protected:
-    CommScheduler *scheduler;
+	int state;
+	int error;
 
 protected:
-    virtual void handle(int state, int error)
-    {
-        this->state = state;
-        this->error = error;
-        this->subtask_done();
-    }
+	CommScheduler *scheduler;
+
+protected:
+	virtual void handle(int state, int error)
+	{
+		this->state = state;
+		this->error = error;
+		this->subtask_done();
+	}
 };
 
 #endif

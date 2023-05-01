@@ -49,7 +49,8 @@ struct CommConnEntry
 	CommConnection *conn;
 	long long seq;
 	int sockfd;
-	short is_channel; /* 0: not channl; 1: channl; 2: channl write; 3:channl write_cb */
+	short is_channel; /* 0: not channl; 1: channl; 2: channl write; 3:channl write_cb
+			   */
 #define CONN_STATE_CONNECTING  0
 #define CONN_STATE_CONNECTED   1
 #define CONN_STATE_RECEIVING   2
@@ -519,13 +520,15 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt, struct Comm
 			}
 			pthread_mutex_unlock(&service->mutex);
 
+			// clang-format off
 			if (entry)
 			{
-			case 0:
+        case 0:
 				mpoller_del(entry->sockfd, this->mpoller);
 				if (entry->state != CONN_STATE_ESTABLISHED)
 					entry->state = CONN_STATE_CLOSING;
 			}
+			// clang-format on
 		}
 	}
 	else
@@ -2168,7 +2171,9 @@ int Communicator::increase_handler_thread()
 		if (thrdpool_increase(this->thrdpool) >= 0)
 		{
 			struct thrdpool_task task = {
-			    .routine = Communicator::handler_thread_routine, .context = this};
+			    .routine = Communicator::handler_thread_routine,
+			    .context = this,
+			};
 			__thrdpool_schedule(&task, buf, this->thrdpool);
 			return 0;
 		}

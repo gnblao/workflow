@@ -16,34 +16,35 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/uio.h>
 #ifdef __linux__
-# include <sys/epoll.h>
-# include <sys/timerfd.h>
+#include <sys/epoll.h>
+#include <sys/timerfd.h>
 #else
-# include <sys/event.h>
-# undef LIST_HEAD
-# undef SLIST_HEAD
+#include <sys/event.h>
+#undef LIST_HEAD
+#undef SLIST_HEAD
 #endif
+#include "bitmap.h"
+#include "list.h"
+#include "poller.h"
+#include "rbtree.h"
+
 #include <errno.h>
-#include <limits.h>
-#include <unistd.h>
 #include <fcntl.h>
-#include <time.h>
+#include <limits.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include "list.h"
-#include "rbtree.h"
-#include "poller.h"
-#include "bitmap.h"
+#include <time.h>
+#include <unistd.h>
 
-#define POLLER_BUFSIZE			(256 * 1024)
-#define POLLER_EVENTS_MAX		256
+#define POLLER_BUFSIZE	  (256 * 1024)
+#define POLLER_EVENTS_MAX 256
 
 struct __poller_node
 {
@@ -83,8 +84,8 @@ struct __poller
 	struct list_head no_timeo_list;
 	struct __poller_node **nodes;
 	struct __poller_node **timer_nodes;
-    BMP_DECLARE(timer_bmp, POLLER_TIMER_MAX);
-    pthread_mutex_t mutex;
+	BMP_DECLARE(timer_bmp, POLLER_TIMER_MAX);
+	pthread_mutex_t mutex;
 	char buf[POLLER_BUFSIZE];
 };
 
@@ -95,15 +96,16 @@ static inline int __poller_create_pfd()
 	return epoll_create(1);
 }
 
-static inline int __poller_add_fd(int fd, int event, void *data,
-								  poller_t *poller)
+static inline int __poller_add_fd(int fd, int event, void *data, poller_t *poller)
 {
+	// clang-format off
 	struct epoll_event ev = {
 		.events		=	event,
 		.data		=	{
 			.ptr	=	data
 		}
 	};
+	// clang-format on
 	return epoll_ctl(poller->pfd, EPOLL_CTL_ADD, fd, &ev);
 }
 
@@ -112,16 +114,17 @@ static inline int __poller_del_fd(int fd, int event, poller_t *poller)
 	return epoll_ctl(poller->pfd, EPOLL_CTL_DEL, fd, NULL);
 }
 
-static inline int __poller_mod_fd(int fd, int old_event,
-								  int new_event, void *data,
-								  poller_t *poller)
+static inline int __poller_mod_fd(int fd, int old_event, int new_event, void *data,
+				  poller_t *poller)
 {
+	// clang-format off
 	struct epoll_event ev = {
 		.events		=	new_event,
 		.data		=	{
 			.ptr	=	data
 		}
 	};
+	// clang-format on
 	return epoll_ctl(poller->pfd, EPOLL_CTL_MOD, fd, &ev);
 }
 
@@ -132,12 +135,14 @@ static inline int __poller_create_timerfd()
 
 static inline int __poller_add_timerfd(int fd, poller_t *poller)
 {
+	// clang-format off
 	struct epoll_event ev = {
 		.events		=	EPOLLIN | EPOLLET,
 		.data		=	{
 			.ptr	=	NULL
 		}
 	};
+	// clang-format on
 	return epoll_ctl(poller->pfd, EPOLL_CTL_ADD, fd, &ev);
 }
 
@@ -146,7 +151,7 @@ static inline int __poller_set_timerfd(int fd, const struct timespec *abstime,
 {
 	struct itimerspec timer = {
 		.it_interval	=	{ },
-		.it_value		=	*abstime
+		.it_value		=	*abstime,
 	};
 	return timerfd_settime(fd, TFD_TIMER_ABSTIME, &timer, NULL);
 }
