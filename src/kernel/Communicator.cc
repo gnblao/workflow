@@ -50,14 +50,14 @@ struct CommConnEntry
 	long long seq;
 	int sockfd;
 	short is_channel; /* 0: not channl; 1: channl; 2: channl write; 3:channl write_cb */
-#define CONN_STATE_CONNECTING 0
-#define CONN_STATE_CONNECTED 1
-#define CONN_STATE_RECEIVING 2
-#define CONN_STATE_SUCCESS 3
-#define CONN_STATE_IDLE 4
-#define CONN_STATE_KEEPALIVE 5
-#define CONN_STATE_CLOSING 6
-#define CONN_STATE_ERROR 7
+#define CONN_STATE_CONNECTING  0
+#define CONN_STATE_CONNECTED   1
+#define CONN_STATE_RECEIVING   2
+#define CONN_STATE_SUCCESS     3
+#define CONN_STATE_IDLE	       4
+#define CONN_STATE_KEEPALIVE   5
+#define CONN_STATE_CLOSING     6
+#define CONN_STATE_ERROR       7
 #define CONN_STATE_ESTABLISHED 8 /*for channl*/
 	short state;
 	int error;
@@ -297,10 +297,7 @@ inline void CommService::decref()
 class CommServiceTarget : public CommTarget
 {
 public:
-	void incref()
-	{
-		__sync_add_and_fetch(&this->ref, 1);
-	}
+	void incref() { __sync_add_and_fetch(&this->ref, 1); }
 
 	void decref()
 	{

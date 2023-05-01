@@ -67,26 +67,14 @@ protected:
 		this->ssl_connect_timeout = ssl_connect_timeout;
 	}
 
-	SSL_CTX *get_ssl_ctx() const
-	{
-		return this->ssl_ctx;
-	}
+	SSL_CTX *get_ssl_ctx() const { return this->ssl_ctx; }
 
 private:
-	virtual int create_connect_fd()
-	{
-		return socket(this->addr->sa_family, SOCK_STREAM, 0);
-	}
+	virtual int create_connect_fd() { return socket(this->addr->sa_family, SOCK_STREAM, 0); }
 
-	virtual CommConnection *new_connection(int connect_fd)
-	{
-		return new CommConnection;
-	}
+	virtual CommConnection *new_connection(int connect_fd) { return new CommConnection; }
 
-	virtual int init_ssl(SSL *ssl)
-	{
-		return 0;
-	}
+	virtual int init_ssl(SSL *ssl) { return 0; }
 
 public:
 	virtual void release(int keep_alive) {}
@@ -138,14 +126,8 @@ public:
 	long long seq{0};		      /*only channel*/
 	class CommSession *session = nullptr; /*only channel*/
 
-	void set_seq(long long seq)
-	{
-		this->seq = seq;
-	}
-	long long get_seq()
-	{
-		return this->seq;
-	}
+	void set_seq(long long seq) { this->seq = seq; }
+	long long get_seq() { return this->seq; }
 
 public:
 	virtual ~CommMessageIn() {}
@@ -153,7 +135,7 @@ public:
 };
 
 #define CS_STATE_SUCCESS 0
-#define CS_STATE_ERROR 1
+#define CS_STATE_ERROR	 1
 #define CS_STATE_STOPPED 2
 #define CS_STATE_TOREPLY 3 /* for service session only. */
 
@@ -162,69 +144,27 @@ class CommSession
 private:
 	virtual CommMessageOut *message_out() = 0;
 	virtual CommMessageIn *message_in() = 0;
-	virtual int send_timeout()
-	{
-		return -1;
-	}
-	virtual int receive_timeout()
-	{
-		return -1;
-	}
-	virtual int keep_alive_timeout()
-	{
-		return 0;
-	}
-	virtual int first_timeout()
-	{
-		return 0;
-	} /* for client session only. */
+	virtual int send_timeout() { return -1; }
+	virtual int receive_timeout() { return -1; }
+	virtual int keep_alive_timeout() { return 0; }
+	virtual int first_timeout() { return 0; } /* for client session only. */
 	virtual void handle(int state, int error) = 0;
 
 public:
-	long long get_seq() const
-	{
-		return this->seq;
-	}
-	void set_seq(long long seq)
-	{
-		this->seq = seq;
-	}
+	long long get_seq() const { return this->seq; }
+	void set_seq(long long seq) { this->seq = seq; }
 
 protected:
-	CommTarget *get_target() const
-	{
-		return this->target;
-	}
-	CommConnection *get_connection() const
-	{
-		return this->conn;
-	}
-	CommMessageOut *get_message_out() const
-	{
-		return this->out;
-	}
-	CommMessageIn *get_message_in() const
-	{
-		return this->in;
-	}
+	CommTarget *get_target() const { return this->target; }
+	CommConnection *get_connection() const { return this->conn; }
+	CommMessageOut *get_message_out() const { return this->out; }
+	CommMessageIn *get_message_in() const { return this->in; }
 
 	/* for client channel only*/
-	virtual bool is_channel()
-	{
-		return false;
-	}
-	CommMessageOut **get_out()
-	{
-		return &this->out;
-	}
-	CommMessageIn **get_in()
-	{
-		return &this->in;
-	}
-	CommConnection **get_conn()
-	{
-		return &this->conn;
-	}
+	virtual bool is_channel() { return false; }
+	CommMessageOut **get_out() { return &this->out; }
+	CommMessageIn **get_in() { return &this->in; }
+	CommConnection **get_conn() { return &this->conn; }
 
 protected:
 	CommTarget *target;
@@ -268,10 +208,7 @@ public:
 		*addrlen = this->addrlen;
 	}
 
-	virtual bool is_channel()
-	{
-		return false;
-	}
+	virtual bool is_channel() { return false; }
 
 protected:
 	void set_ssl(SSL_CTX *ssl_ctx, int ssl_accept_timeout)
@@ -280,10 +217,7 @@ protected:
 		this->ssl_accept_timeout = ssl_accept_timeout;
 	}
 
-	SSL_CTX *get_ssl_ctx() const
-	{
-		return this->ssl_ctx;
-	}
+	SSL_CTX *get_ssl_ctx() const { return this->ssl_ctx; }
 
 private:
 	virtual CommSession *new_session(long long seq, CommConnection *conn) = 0;
@@ -296,15 +230,9 @@ private:
 		return socket(this->bind_addr->sa_family, SOCK_STREAM, 0);
 	}
 
-	virtual CommConnection *new_connection(int accept_fd)
-	{
-		return new CommConnection;
-	}
+	virtual CommConnection *new_connection(int accept_fd) { return new CommConnection; }
 
-	virtual int init_ssl(SSL *ssl)
-	{
-		return 0;
-	}
+	virtual int init_ssl(SSL *ssl) { return 0; }
 
 private:
 	struct sockaddr *bind_addr;
@@ -332,8 +260,8 @@ public:
 	friend class Communicator;
 };
 
-#define SS_STATE_COMPLETE 0
-#define SS_STATE_ERROR 1
+#define SS_STATE_COMPLETE  0
+#define SS_STATE_ERROR	   1
 #define SS_STATE_DISRUPTED 2
 
 class SleepSession
