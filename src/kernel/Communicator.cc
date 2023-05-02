@@ -49,8 +49,8 @@ struct CommConnEntry
 	CommConnection *conn;
 	long long seq;
 	int sockfd;
-	short is_channel; /* 0: not channl; 1: channl; 2: channl write; 3:channl write_cb
-			   */
+	/* 0: not channel; 1: channel; 2: channel write; 3:channel write_cb */
+	short is_channel;
 #define CONN_STATE_CONNECTING  0
 #define CONN_STATE_CONNECTED   1
 #define CONN_STATE_RECEIVING   2
