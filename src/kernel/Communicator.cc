@@ -523,7 +523,7 @@ int Communicator::send_message_sync(struct iovec vectors[], int cnt, struct Comm
 			// clang-format off
 			if (entry)
 			{
-        case 0:
+		case 0:
 				mpoller_del(entry->sockfd, this->mpoller);
 				if (entry->state != CONN_STATE_ESTABLISHED)
 					entry->state = CONN_STATE_CLOSING;
