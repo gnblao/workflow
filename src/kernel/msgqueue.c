@@ -27,8 +27,9 @@
  */
 
 #include <errno.h>
-#include <stdlib.h>
 #include <pthread.h>
+#include <stdlib.h>
+
 #include "msgqueue.h"
 
 struct __msgqueue
@@ -121,7 +122,7 @@ void *msgqueue_get(msgqueue_t *queue)
 
 msgqueue_t *msgqueue_create(size_t maxlen, int linkoff)
 {
-	msgqueue_t *queue = (msgqueue_t *)malloc(sizeof (msgqueue_t));
+	msgqueue_t *queue = (msgqueue_t *)malloc(sizeof(msgqueue_t));
 	int ret;
 
 	if (!queue)
@@ -173,4 +174,3 @@ void msgqueue_destroy(msgqueue_t *queue)
 	pthread_mutex_destroy(&queue->get_mutex);
 	free(queue);
 }
-

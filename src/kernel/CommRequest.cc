@@ -17,8 +17,9 @@
 */
 
 #include <errno.h>
-#include "CommScheduler.h"
+
 #include "CommRequest.h"
+#include "CommScheduler.h"
 
 void CommRequest::handle(int state, int error)
 {
@@ -35,4 +36,3 @@ void CommRequest::handle(int state, int error)
 
 	this->subtask_done();
 }
-

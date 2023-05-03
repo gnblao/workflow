@@ -16,11 +16,11 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include "mpoller.h"
-#include "poller.h"
-
 #include <stddef.h>
 #include <stdlib.h>
+
+#include "mpoller.h"
+#include "poller.h"
 
 extern poller_t *__poller_create(void **, const struct poller_params *);
 extern void __poller_destroy(poller_t *);
@@ -113,4 +113,3 @@ void mpoller_destroy(mpoller_t *mpoller)
 	free(mpoller->nodes_buf);
 	free(mpoller);
 }
-

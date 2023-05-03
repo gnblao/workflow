@@ -19,12 +19,14 @@
 #ifndef _COMMSCHEDULER_H_
 #define _COMMSCHEDULER_H_
 
-#include "Communicator.h"
-
-#include <openssl/ssl.h>
-#include <pthread.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+
+#include <pthread.h>
+
+#include <openssl/ssl.h>
+
+#include "Communicator.h"
 
 class CommSchedObject
 {
@@ -40,7 +42,7 @@ protected:
 	size_t cur_load;
 
 public:
-	virtual ~CommSchedObject() {}
+	virtual ~CommSchedObject() { }
 	friend class CommScheduler;
 };
 
@@ -58,8 +60,8 @@ public:
 		 int connect_timeout, int ssl_connect_timeout, int response_timeout,
 		 size_t max_connections)
 	{
-		int ret =
-		    this->init(addr, addrlen, connect_timeout, response_timeout, max_connections);
+		int ret = this->init(addr, addrlen, connect_timeout, response_timeout,
+				     max_connections);
 
 		if (ret >= 0)
 			this->set_ssl(ssl_ctx, ssl_connect_timeout);
@@ -176,8 +178,7 @@ private:
 	Communicator comm;
 
 public:
-	virtual ~CommScheduler() {}
+	virtual ~CommScheduler() { }
 };
 
 #endif
-

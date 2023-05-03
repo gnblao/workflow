@@ -27,21 +27,22 @@
 #undef LIST_HEAD
 #undef SLIST_HEAD
 #endif
-#include "bitmap.h"
-#include "list.h"
-#include "poller.h"
-#include "rbtree.h"
-
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <openssl/err.h>
-#include <openssl/ssl.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+
+#include "bitmap.h"
+#include "list.h"
+#include "poller.h"
+#include "rbtree.h"
 
 #define POLLER_BUFSIZE	  (256 * 1024)
 #define POLLER_EVENTS_MAX 256
@@ -149,8 +150,8 @@ static inline int __poller_add_timerfd(int fd, poller_t *poller)
 static inline int __poller_set_timerfd(int fd, const struct timespec *abstime, poller_t *poller)
 {
 	struct itimerspec timer = {
-	    .it_interval = {},
-	    .it_value = *abstime,
+		.it_interval = {},
+		.it_value = *abstime,
 	};
 	return timerfd_settime(fd, TFD_TIMER_ABSTIME, &timer, NULL);
 }
@@ -1675,4 +1676,3 @@ void poller_stop(poller_t *poller)
 
 	pthread_mutex_unlock(&poller->mutex);
 }
-

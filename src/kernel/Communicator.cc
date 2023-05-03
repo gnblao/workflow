@@ -16,32 +16,35 @@
   Author: Xie Han (xiehan@sogou-inc.com)
 */
 
-#include "Communicator.h"
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/uio.h>
 
-#include "IOService_linux.h"
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <pthread.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+
+#include <atomic>
+#include <cstddef>
+#include <iostream>
+#include <mutex>
+
+#include <openssl/bio.h>
+#include <openssl/ssl.h>
+
 #include "list.h"
 #include "mpoller.h"
 #include "msgqueue.h"
 #include "poller.h"
 #include "thrdpool.h"
 
-#include <atomic>
-#include <cstddef>
-#include <errno.h>
-#include <fcntl.h>
-#include <iostream>
-#include <limits.h>
-#include <mutex>
-#include <openssl/bio.h>
-#include <openssl/ssl.h>
-#include <pthread.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/uio.h>
-#include <time.h>
-#include <unistd.h>
+#include "Communicator.h"
+#include "IOService_linux.h"
 
 struct CommConnEntry
 {
@@ -311,9 +314,9 @@ public:
 	}
 
 public:
-	CommServiceTarget() : sockfd(-1), ref(0) {}
+	CommServiceTarget() : sockfd(-1), ref(0) { }
 
-	virtual ~CommServiceTarget() {}
+	virtual ~CommServiceTarget() { }
 
 private:
 	int sockfd;
@@ -715,7 +718,7 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 			list_del(&entry->list);
 			pthread_mutex_unlock(&entry->service->mutex);
 			entry->state =
-			    res->state == PR_ST_ERROR ? CONN_STATE_ERROR : CONN_STATE_CLOSING;
+				res->state == PR_ST_ERROR ? CONN_STATE_ERROR : CONN_STATE_CLOSING;
 			session = entry->session;
 			break;
 		case CONN_STATE_CLOSING:
@@ -726,7 +729,7 @@ void Communicator::handle_incoming_request(struct poller_result *res)
 			/* This may happen only if handler_threads > 1. */
 			// entry->state = CONN_STATE_CLOSING;
 			entry->state =
-			    res->state == PR_ST_ERROR ? CONN_STATE_ERROR : CONN_STATE_CLOSING;
+				res->state == PR_ST_ERROR ? CONN_STATE_ERROR : CONN_STATE_CLOSING;
 			entry = NULL;
 			break;
 		}
@@ -812,15 +815,15 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 			session = entry->session;
 			break;
 		case CONN_STATE_ESTABLISHED: /*for channel*/
-			entry->state =
-			    (res->state == PR_ST_ERROR) ? CONN_STATE_ERROR : CONN_STATE_CLOSING;
+			entry->state = (res->state == PR_ST_ERROR) ? CONN_STATE_ERROR
+								   : CONN_STATE_CLOSING;
 			session = entry->session;
 			break;
 
 		case CONN_STATE_SUCCESS:
 			/* This may happen only if handler_threads > 1. */
-			entry->state =
-			    (res->state == PR_ST_ERROR) ? CONN_STATE_ERROR : CONN_STATE_CLOSING;
+			entry->state = (res->state == PR_ST_ERROR) ? CONN_STATE_ERROR
+								   : CONN_STATE_CLOSING;
 			entry = NULL;
 			break;
 		}
@@ -1557,8 +1560,8 @@ void Communicator::callback(struct poller_result *res, void *context)
 int Communicator::create_handler_threads(size_t handler_threads)
 {
 	struct thrdpool_task task = {
-	    .routine = Communicator::handler_thread_routine,
-	    .context = this,
+		.routine = Communicator::handler_thread_routine,
+		.context = this,
 	};
 	size_t i;
 
@@ -1584,8 +1587,8 @@ int Communicator::create_handler_threads(size_t handler_threads)
 int Communicator::create_poller(size_t poller_threads)
 {
 	struct poller_params params = {
-	    .max_open_files = (size_t)sysconf(_SC_OPEN_MAX),
-	    .callback = Communicator::callback,
+		.max_open_files = (size_t)sysconf(_SC_OPEN_MAX),
+		.callback = Communicator::callback,
 	};
 
 	if ((ssize_t)params.max_open_files < 0)
@@ -2171,8 +2174,8 @@ int Communicator::increase_handler_thread()
 		if (thrdpool_increase(this->thrdpool) >= 0)
 		{
 			struct thrdpool_task task = {
-			    .routine = Communicator::handler_thread_routine,
-			    .context = this,
+				.routine = Communicator::handler_thread_routine,
+				.context = this,
 			};
 			__thrdpool_schedule(&task, buf, this->thrdpool);
 			return 0;
@@ -2292,4 +2295,3 @@ void Communicator::io_unbind(IOService *service)
 }
 
 #endif
-

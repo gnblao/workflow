@@ -19,20 +19,23 @@
 #ifndef _COMMUNICATOR_H_
 #define _COMMUNICATOR_H_
 
-#include "list.h"
-#include "mpoller.h"
-#include "poller.h"
-
-#include <errno.h>
-#include <list>	 // c++
-#include <mutex> // c++
-#include <openssl/ssl.h>
-#include <pthread.h>
-#include <stddef.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+
+#include <errno.h>
+#include <pthread.h>
+#include <stddef.h>
 #include <time.h>
+
+#include <list>	 // c++
+#include <mutex> // c++
+
+#include <openssl/ssl.h>
+
+#include "list.h"
+#include "mpoller.h"
+#include "poller.h"
 
 class CommMessageOut;
 struct CommConnEntry;
@@ -42,7 +45,7 @@ public:
 	CommConnEntry *entry = nullptr;
 
 protected:
-	virtual ~CommConnection() {}
+	virtual ~CommConnection() { }
 	friend class Communicator;
 };
 
@@ -77,7 +80,7 @@ private:
 	virtual int init_ssl(SSL *ssl) { return 0; }
 
 public:
-	virtual void release(int keep_alive) {}
+	virtual void release(int keep_alive) { }
 
 private:
 	struct sockaddr *addr;
@@ -92,7 +95,7 @@ private:
 	pthread_mutex_t mutex;
 
 public:
-	virtual ~CommTarget() {}
+	virtual ~CommTarget() { }
 	friend class CommSession;
 	friend class Communicator;
 };
@@ -103,7 +106,7 @@ private:
 	virtual int encode(struct iovec vectors[], int max) = 0;
 
 public:
-	virtual ~CommMessageOut() {}
+	virtual ~CommMessageOut() { }
 	friend class Communicator;
 };
 
@@ -130,7 +133,7 @@ public:
 	long long get_seq() { return this->seq; }
 
 public:
-	virtual ~CommMessageIn() {}
+	virtual ~CommMessageIn() { }
 	friend class Communicator;
 };
 
@@ -221,7 +224,7 @@ protected:
 
 private:
 	virtual CommSession *new_session(long long seq, CommConnection *conn) = 0;
-	virtual void handle_stop(int error) {}
+	virtual void handle_stop(int error) { }
 	virtual void handle_unbound() = 0;
 
 private:
@@ -255,7 +258,7 @@ private:
 	pthread_mutex_t mutex;
 
 public:
-	virtual ~CommService() {}
+	virtual ~CommService() { }
 	friend class CommServiceTarget;
 	friend class Communicator;
 };
@@ -274,8 +277,8 @@ public:
 	unsigned long long timerid;
 
 public:
-	SleepSession() : timerid(0) {}
-	virtual ~SleepSession() {}
+	SleepSession() : timerid(0) { }
+	virtual ~SleepSession() { }
 	friend class Communicator;
 };
 
@@ -387,8 +390,7 @@ private:
 	static void callback(struct poller_result *res, void *context);
 
 public:
-	virtual ~Communicator() {}
+	virtual ~Communicator() { }
 };
 
 #endif
-

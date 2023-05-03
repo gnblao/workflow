@@ -2,15 +2,16 @@
 
 #include "bitmap.h"
 
-#define BMP_WORD_INDEX(n) (BITS_TO_LONGS((n) + 1) - 1)
+#define BMP_WORD_INDEX(n)	   (BITS_TO_LONGS((n) + 1) - 1)
 #define BMP_FIRST_WORD_MASK(start) (~0UL << ((start) & (BITS_PER_LONG - 1)))
-#define BMP_LAST_WORD_MASK(end) (~BMP_FIRST_WORD_MASK(end))
+#define BMP_LAST_WORD_MASK(end)	   (~BMP_FIRST_WORD_MASK(end))
 
 static unsigned long __word_ffs(const unsigned long *word)
 {
 	unsigned long i;
 
-	for (i = 0; i < BITS_PER_LONG; i++) {
+	for (i = 0; i < BITS_PER_LONG; i++)
+	{
 		if (bitmap_test_bit(word, i))
 			return i;
 	}
@@ -18,8 +19,8 @@ static unsigned long __word_ffs(const unsigned long *word)
 	return i;
 }
 
-static unsigned long word_ffs(const unsigned long *word,
-			      unsigned long bmp_index, unsigned long end)
+static unsigned long word_ffs(const unsigned long *word, unsigned long bmp_index,
+			      unsigned long end)
 {
 	unsigned long set_bit;
 
@@ -31,15 +32,14 @@ static unsigned long word_ffs(const unsigned long *word,
 	return set_bit;
 }
 
-
 /*
  * Finds the first set bit in the bitmap starting from
  * 'start' bit until ('end'-1) bit.
  *
  * Returns the set bit index if found, otherwise returns 'end'.
  */
-unsigned long bitmap_find_first_bit(const unsigned long *bmp,
-				    unsigned long start, unsigned long end)
+unsigned long bitmap_find_first_bit(const unsigned long *bmp, unsigned long start,
+				    unsigned long end)
 {
 	unsigned long mask;
 	unsigned long first_word;
@@ -54,7 +54,8 @@ unsigned long bitmap_find_first_bit(const unsigned long *bmp,
 	if (first_word)
 		return word_ffs(&first_word, curr_idx, end);
 
-	for (curr_idx++; curr_idx <= end_idx; curr_idx++) {
+	for (curr_idx++; curr_idx <= end_idx; curr_idx++)
+	{
 		if (!bmp[curr_idx])
 			continue;
 
@@ -64,8 +65,8 @@ unsigned long bitmap_find_first_bit(const unsigned long *bmp,
 	return end;
 }
 
-unsigned long bitmap_find_first_clear_bit(const unsigned long *bmp,
-				    unsigned long start, unsigned long end)
+unsigned long bitmap_find_first_clear_bit(const unsigned long *bmp, unsigned long start,
+					  unsigned long end)
 {
 	unsigned long mask;
 	unsigned long first_word;
@@ -77,47 +78,50 @@ unsigned long bitmap_find_first_clear_bit(const unsigned long *bmp,
 	mask = BMP_FIRST_WORD_MASK(start);
 
 	first_word = bmp[curr_idx] & mask;
-	if (first_word != mask) {
+	if (first_word != mask)
+	{
 		first_word = ~first_word;
-        return word_ffs(&first_word, curr_idx, end);
-    }
+		return word_ffs(&first_word, curr_idx, end);
+	}
 
-	for (curr_idx++; curr_idx <= end_idx; curr_idx++) {
+	for (curr_idx++; curr_idx <= end_idx; curr_idx++)
+	{
 		if (bmp[curr_idx] == ~0UL)
 			continue;
-        
-        first_word = ~bmp[curr_idx];
-        return word_ffs(&first_word, curr_idx, end);
+
+		first_word = ~bmp[curr_idx];
+		return word_ffs(&first_word, curr_idx, end);
 	}
 
 	return end;
 }
 
-
 /*
  * Find the first cleared bit in a memory region.
- *       
+ *
  */
-unsigned long bitmap_find_first_zero_bit(const unsigned long *addr, unsigned long start, unsigned long end)
+unsigned long bitmap_find_first_zero_bit(const unsigned long *addr, unsigned long start,
+					 unsigned long end)
 {
 	unsigned long idx = BMP_WORD_INDEX(start);
 	unsigned long word;
 	assert(start < end);
 
-    for (idx = 0; idx * BITS_PER_LONG < end; idx++) {
-        if (addr[idx] != ~0UL) {
-            word = ~addr[idx]; 
-            return word_ffs(&word, idx, end);
-        }
-    }
+	for (idx = 0; idx * BITS_PER_LONG < end; idx++)
+	{
+		if (addr[idx] != ~0UL)
+		{
+			word = ~addr[idx];
+			return word_ffs(&word, idx, end);
+		}
+	}
 
-    return end;
+	return end;
 }
 /*
  * Zeroes bitmap bits in the following range: [start,end-1]
  */
-void bitmap_zero_region(unsigned long *bmp, unsigned long start,
-			unsigned long end)
+void bitmap_zero_region(unsigned long *bmp, unsigned long start, unsigned long end)
 {
 	unsigned long start_mask;
 	unsigned long last_mask;
@@ -129,7 +133,8 @@ void bitmap_zero_region(unsigned long *bmp, unsigned long start,
 	start_mask = BMP_FIRST_WORD_MASK(start);
 	last_mask = BMP_LAST_WORD_MASK(end);
 
-	if (curr_idx == end_idx) {
+	if (curr_idx == end_idx)
+	{
 		bmp[curr_idx] &= ~(start_mask & last_mask);
 		return;
 	}
@@ -145,8 +150,7 @@ void bitmap_zero_region(unsigned long *bmp, unsigned long start,
 /*
  * Sets bitmap bits in the following range: [start,end-1]
  */
-void bitmap_fill_region(unsigned long *bmp, unsigned long start,
-			unsigned long end)
+void bitmap_fill_region(unsigned long *bmp, unsigned long start, unsigned long end)
 {
 	unsigned long start_mask;
 	unsigned long last_mask;
@@ -158,7 +162,8 @@ void bitmap_fill_region(unsigned long *bmp, unsigned long start,
 	start_mask = BMP_FIRST_WORD_MASK(start);
 	last_mask = BMP_LAST_WORD_MASK(end);
 
-	if (curr_idx == end_idx) {
+	if (curr_idx == end_idx)
+	{
 		bmp[curr_idx] |= (start_mask & last_mask);
 		return;
 	}
@@ -196,7 +201,8 @@ static bool bitmap_is_free_region(unsigned long *bmp, unsigned long start,
 	if (bmp[curr_idx] & start_mask)
 		return false;
 
-	for (curr_idx++; curr_idx < last_idx; curr_idx++) {
+	for (curr_idx++; curr_idx < last_idx; curr_idx++)
+	{
 		if (bmp[curr_idx])
 			return false;
 	}
@@ -211,13 +217,13 @@ static bool bitmap_is_free_region(unsigned long *bmp, unsigned long start,
  * Returns first index of such region if found,
  * otherwise returns nbits.
  */
-unsigned long bitmap_find_free_region(unsigned long *bmp,
-				      unsigned long nbits,
+unsigned long bitmap_find_free_region(unsigned long *bmp, unsigned long nbits,
 				      unsigned long region_size)
 {
 	unsigned long start;
 
-	for (start = 0; start + region_size <= nbits; start++) {
+	for (start = 0; start + region_size <= nbits; start++)
+	{
 		if (bitmap_test_bit(bmp, start))
 			continue;
 
@@ -227,4 +233,3 @@ unsigned long bitmap_find_free_region(unsigned long *bmp,
 
 	return nbits;
 }
-

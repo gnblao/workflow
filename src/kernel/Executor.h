@@ -19,8 +19,9 @@
 #ifndef _EXECUTOR_H_
 #define _EXECUTOR_H_
 
-#include <stddef.h>
 #include <pthread.h>
+#include <stddef.h>
+
 #include "list.h"
 
 class ExecQueue
@@ -38,9 +39,9 @@ public:
 	friend class Executor;
 };
 
-#define ES_STATE_FINISHED	0
-#define ES_STATE_ERROR		1
-#define ES_STATE_CANCELED	2
+#define ES_STATE_FINISHED 0
+#define ES_STATE_ERROR	  1
+#define ES_STATE_CANCELED 2
 
 class ExecSession
 {
@@ -79,4 +80,3 @@ public:
 };
 
 #endif
-

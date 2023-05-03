@@ -19,9 +19,9 @@
 #ifndef _MPOLLER_H_
 #define _MPOLLER_H_
 
-#include "poller.h"
-
 #include <stddef.h>
+
+#include "poller.h"
 
 typedef struct __mpoller mpoller_t;
 
@@ -30,10 +30,10 @@ extern "C"
 {
 #endif
 
-	mpoller_t *mpoller_create(const struct poller_params *params, size_t nthreads);
-	int mpoller_start(mpoller_t *mpoller);
-	void mpoller_stop(mpoller_t *mpoller);
-	void mpoller_destroy(mpoller_t *mpoller);
+mpoller_t *mpoller_create(const struct poller_params *params, size_t nthreads);
+int mpoller_start(mpoller_t *mpoller);
+void mpoller_stop(mpoller_t *mpoller);
+void mpoller_destroy(mpoller_t *mpoller);
 
 #ifdef __cplusplus
 }
@@ -104,4 +104,3 @@ static inline int mpoller_del_timer(unsigned long long timerid, mpoller_t *mpoll
 }
 
 #endif
-

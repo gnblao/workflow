@@ -3,36 +3,32 @@
 #ifndef UTIL_BITMAP_H
 #define UTIL_BITMAP_H
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <limits.h>
-#include <string.h>
 #include <assert.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 
-#define BITS_PER_LONG	   (8 * sizeof(long))
-#define BITS_PER_LONG_LONG (8 * sizeof(long long))
-#define BITS_TO_LONGS(nr)  (((nr) + BITS_PER_LONG - 1) / BITS_PER_LONG)
+#define BITS_PER_LONG		 (8 * sizeof(long))
+#define BITS_PER_LONG_LONG	 (8 * sizeof(long long))
+#define BITS_TO_LONGS(nr)	 (((nr) + BITS_PER_LONG - 1) / BITS_PER_LONG)
 
-#define BMP_DECLARE(name, nbits) \
-	unsigned long (name)[BITS_TO_LONGS((nbits))]
+#define BMP_DECLARE(name, nbits) unsigned long(name)[BITS_TO_LONGS((nbits))]
 
-unsigned long bitmap_find_first_bit(const unsigned long *bmp,
-				    unsigned long start, unsigned long end);
+unsigned long bitmap_find_first_bit(const unsigned long *bmp, unsigned long start,
+				    unsigned long end);
 
-unsigned long bitmap_find_first_clear_bit(const unsigned long *bmp,
-				    unsigned long start, unsigned long end);
+unsigned long bitmap_find_first_clear_bit(const unsigned long *bmp, unsigned long start,
+					  unsigned long end);
 
-unsigned long bitmap_find_first_zero_bit(const unsigned long *bmp,
-				    unsigned long start, unsigned long end);
+unsigned long bitmap_find_first_zero_bit(const unsigned long *bmp, unsigned long start,
+					 unsigned long end);
 
-void bitmap_zero_region(unsigned long *bmp, unsigned long start,
-			unsigned long end);
+void bitmap_zero_region(unsigned long *bmp, unsigned long start, unsigned long end);
 
-void bitmap_fill_region(unsigned long *bmp, unsigned long start,
-			unsigned long end);
+void bitmap_fill_region(unsigned long *bmp, unsigned long start, unsigned long end);
 
-unsigned long bitmap_find_free_region(unsigned long *bmp,
-				      unsigned long nbits,
+unsigned long bitmap_find_free_region(unsigned long *bmp, unsigned long nbits,
 				      unsigned long region_size);
 
 static inline void bitmap_fill(unsigned long *bmp, unsigned long nbits)
@@ -56,7 +52,8 @@ static inline bool bitmap_empty(const unsigned long *bmp, unsigned long nbits)
 
 	assert(nbits);
 
-	for (i = 0; i < BITS_TO_LONGS(nbits) - 1; i++) {
+	for (i = 0; i < BITS_TO_LONGS(nbits) - 1; i++)
+	{
 		if (bmp[i] != 0)
 			return false;
 	}
@@ -74,7 +71,8 @@ static inline bool bitmap_full(const unsigned long *bmp, unsigned long nbits)
 
 	assert(nbits);
 
-	for (i = 0; i < BITS_TO_LONGS(nbits) - 1; i++) {
+	for (i = 0; i < BITS_TO_LONGS(nbits) - 1; i++)
+	{
 		if (bmp[i] != -1UL)
 			return false;
 	}
@@ -97,8 +95,7 @@ static inline void bitmap_clear_bit(unsigned long *bmp, unsigned long idx)
 
 static inline bool bitmap_test_bit(const unsigned long *bmp, unsigned long idx)
 {
-	return !!(bmp[(idx / BITS_PER_LONG)] &
-		 (1UL << (idx % BITS_PER_LONG)));
+	return !!(bmp[(idx / BITS_PER_LONG)] & (1UL << (idx % BITS_PER_LONG)));
 }
 
 static inline unsigned long *bitmap_alloc0(unsigned long size)
