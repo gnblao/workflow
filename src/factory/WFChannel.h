@@ -37,30 +37,6 @@ enum
 	WFC_MSG_STATE_OUT_WRITE_LIST = 4, // only for client first msg
 };
 
-class MsgSession : public CommSession
-{
-public:
-	virtual protocol::ProtocolMessage *get_msg() = 0;
-	virtual int get_state() const = 0;
-	virtual void set_state(int state) = 0;
-
-	MsgSession() : CommSession() { }
-	virtual ~MsgSession(){};
-
-private:
-	virtual CommMessageOut *message_out() final
-	{
-		errno = ENOSYS;
-		return NULL;
-	}
-
-	virtual CommMessageIn *message_in() final
-	{
-		errno = ENOSYS;
-		return NULL;
-	}
-};
-
 class ChannelMsg;
 
 class WFChannel
@@ -72,7 +48,7 @@ public:
 	using Channel = WFNetworkTask<MSG, MSG>;
 
 public:
-	virtual MsgSession *new_msg_session() = 0;
+	virtual ChannelMsg *new_msg_session() = 0;
 
 	virtual bool is_open(int is_deep = 0) = 0;
 	virtual int shutdown() = 0;
@@ -131,7 +107,7 @@ public:
 	}
 };
 
-class ChannelMsg : public SubTask, public MsgSession
+class ChannelMsg : public SubTask, public CommSession
 {
 private:
 	using MSG = protocol::ProtocolMessage;
@@ -163,7 +139,7 @@ public:
 
 public:
 	explicit ChannelMsg(WFChannel *channel, MSG *msg)
-		: inner_callback(nullptr), state(WFC_MSG_STATE_OUT), error(0)
+		: CommSession(), inner_callback(nullptr), state(WFC_MSG_STATE_OUT), error(0)
 	{
 		assert(channel);
 		assert(msg);
@@ -214,7 +190,10 @@ public:
 		this->inner_callback = std::move(cb);
 	}
 
-	void set_inner_process(std::function<void(ChannelMsg *)> cb) { this->inner_process = cb; }
+	void set_inner_process(std::function<void(ChannelMsg *)> cb)
+	{
+		this->inner_process = std::move(cb);
+	}
 
 protected:
 	std::function<void(ChannelMsg *)> inner_callback;
@@ -229,6 +208,19 @@ private:
 
 protected:
 	WFChannel *channel;
+
+private:
+	virtual CommMessageOut *message_out() final
+	{
+		errno = ENOSYS;
+		return NULL;
+	}
+
+	virtual CommMessageIn *message_in() final
+	{
+		errno = ENOSYS;
+		return NULL;
+	}
 };
 
 template <typename ChannelEntry = WFChannel::Channel>
@@ -245,7 +237,7 @@ protected:
 
 	virtual CommMessageIn *message_in()
 	{
-		MsgSession *session;
+		ChannelMsg *session;
 
 		CommMessageIn *msg = this->get_message_in();
 		if (msg)

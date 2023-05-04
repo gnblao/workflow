@@ -273,9 +273,9 @@ public:
 	const ParsedURI *get_uri() const { return &this->uri_; }
 
 public:
-	virtual MsgSession *new_msg_session()
+	virtual ChannelMsg *new_msg_session()
 	{
-		MsgSession *session = nullptr;
+		ChannelMsg *session = nullptr;
 		if (this->get_msg_in_seq() == 0)
 			session = this->safe_new_channel_msg<WSHearderRsp>(WFC_MSG_STATE_IN);
 		else
@@ -359,9 +359,9 @@ public:
 	}
 
 public:
-	virtual MsgSession *new_msg_session()
+	virtual ChannelMsg *new_msg_session()
 	{
-		MsgSession *session = nullptr;
+		ChannelMsg *session = nullptr;
 		if (this->get_msg_in_seq() == 0)
 			session = this->safe_new_channel_msg<WSHearderReq>(WFC_MSG_STATE_IN);
 		else

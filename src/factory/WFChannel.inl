@@ -8,6 +8,7 @@
 #include <functional>
 #include <memory>
 
+#include "WFChannel.h"
 #include "WFChannelMsg.h"
 
 using WFChannelClientBase =
@@ -54,9 +55,9 @@ public:
 		return 0;
 	}
 
-	virtual MsgSession *new_msg_session()
+	virtual ChannelMsg *new_msg_session()
 	{
-		MsgSession *session = this->safe_new_channel_msg<CMsgEntry>(WFC_MSG_STATE_IN);
+		ChannelMsg *session = this->safe_new_channel_msg<CMsgEntry>(WFC_MSG_STATE_IN);
 
 		return session;
 	}
@@ -154,9 +155,9 @@ public:
 		return 0;
 	}
 
-	virtual MsgSession *new_msg_session()
+	virtual ChannelMsg *new_msg_session()
 	{
-		MsgSession *session = this->safe_new_channel_msg<CMsgEntry>(WFC_MSG_STATE_IN);
+		ChannelMsg *session = this->safe_new_channel_msg<CMsgEntry>(WFC_MSG_STATE_IN);
 
 		return session;
 	}
