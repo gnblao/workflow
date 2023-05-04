@@ -89,12 +89,16 @@ FixNamespaceComments: true
 IncludeBlocks:   Regroup
 IncludeCategories:
   - Regex:           '^<sys/.*\.h>'
-    Priority:        -6
-    SortPriority:    -6
+    Priority:        -7
+    SortPriority:    -7
     CaseSensitive:   false
   - Regex:           '^<openssl/.*\.h>'
     Priority:        -3
     SortPriority:    -3
+    CaseSensitive:   false
+  - Regex:           '^<.*/.*\.h>'
+    Priority:        -6
+    SortPriority:    -6
     CaseSensitive:   false
   - Regex:           '^<.*\.h>'
     Priority:        -5
@@ -108,12 +112,12 @@ IncludeCategories:
     Priority:        -2
     SortPriority:    -2
     CaseSensitive:   true
-  - Regex:           '.*'
+  - Regex:           '^".*'
     Priority:        -1
     SortPriority:    -1
     CaseSensitive:   true
 IncludeIsMainRegex: '([-_](test|unittest))?$'
-IncludeIsMainSourceRegex: '(\.h)?$'
+IncludeIsMainSourceRegex: '$'
 IndentAccessModifiers: false
 IndentCaseLabels: false
 IndentCaseBlocks: false
