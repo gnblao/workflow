@@ -88,7 +88,7 @@ public:
 	virtual int send_frame(const char *data, int size, int frame_size, enum ws_opcode opcode,
 			       std::function<void()> cb = nullptr);
 	virtual int __send_frame(const char *data, int size, enum ws_opcode opcode, bool fin,
-				 std::function<void(WFChannelMsg<protocolMsg> *)> cb = nullptr);
+				 std::function<void(WSFrame *)> cb = nullptr);
 
 	virtual int process_ping(protocolMsg *msg);
 	virtual int process_pong(protocolMsg *msg) { return 0; }

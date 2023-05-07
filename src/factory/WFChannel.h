@@ -61,6 +61,8 @@ public:
 
 	virtual bool is_server() = 0;
 	virtual void set_delete_cb(std::function<void()>) = 0;
+
+	virtual int process_msg(MSG *msg) = 0;
 	virtual int send(void *buf, size_t size) = 0;
 
 protected:
@@ -74,7 +76,9 @@ public:
 	long long get_msg_in_seq() { return this->msg_in_seq; }
 	long long get_msg_out_seq() { return this->msg_out_seq; }
 
-	template <typename CMsgEntry = ChannelMsg>
+	template <typename CMsgEntry = ChannelMsg,
+		  typename std::enable_if<std::is_base_of<ChannelMsg, CMsgEntry>::value,
+					  int>::type = 0>
 	CMsgEntry *safe_new_channel_msg(int state = WFC_MSG_STATE_OUT)
 	{
 		// Atomic this->ref to protect new(CMsgEntry) ctx
@@ -355,6 +359,7 @@ public:
 				task->set_inner_process(
 					std::bind(&WFChannelImpl<ChannelEntry>::channel_eat_msg,
 						  this, std::placeholders::_1));
+
 				task->set_inner_callback([pool](ChannelMsg *)
 							 { pool->post(nullptr); });
 
@@ -376,8 +381,10 @@ public:
 				task->set_inner_process(
 					std::bind(&WFChannelImpl<ChannelEntry>::channel_eat_msg,
 						  this, std::placeholders::_1));
+
 				task->set_inner_callback([pool](ChannelMsg *)
 							 { pool->post(nullptr); });
+
 				cond->start();
 			}
 		}

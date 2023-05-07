@@ -130,10 +130,9 @@ int WebSocketChannel::send_binary(const char *data, size_t size)
 int WebSocketChannel::send_frame(const char *buf, int len, int fragment, enum ws_opcode opcode,
 				 std::function<void()> bc)
 {
-	// std::lock_guard<std::mutex> locker(mutex_);
 	if (len <= fragment)
 	{
-		return this->__send_frame(buf, len, opcode, true);
+		return this->__send_frame(buf, len, opcode, true, [bc](WSFrame *) { if (bc) bc(); });
 	}
 
 	// first fragment
@@ -154,7 +153,7 @@ int WebSocketChannel::send_frame(const char *buf, int len, int fragment, enum ws
 
 	// last fragment
 	nsend = this->__send_frame(p, remain, WebSocketFrameContinuation, true,
-				   [bc](WFChannelMsg<protocol::WebSocketFrame> *) { bc(); });
+				   [bc](WSFrame *) { if (bc) bc(); });
 	if (nsend < 0)
 		return p - buf;
 
@@ -167,7 +166,7 @@ int WebSocketChannel::__send_frame(
 {
 	int ret;
 
-	auto *task = this->channel->safe_new_channel_msg<WSFrame>();
+	auto *task = this->channel->safe_new_channel_msg<WSFrame>(WFC_MSG_STATE_OUT);
 	if (!task)
 		return -1;
 
@@ -210,9 +209,7 @@ int WebSocketChannel::process_close(protocol::WebSocketFrame *in)
 
 		this->__send_frame((char *)in->get_parser()->payload_data,
 				   in->get_parser()->payload_length, WebSocketFrameConnectionClose,
-				   true,
-				   [this](WFChannelMsg<protocol::WebSocketFrame> *)
-				   { this->channel->shutdown(); });
+				   true, [this](WSFrame *) { this->channel->shutdown(); });
 	}
 
 	return 0;
@@ -220,7 +217,8 @@ int WebSocketChannel::process_close(protocol::WebSocketFrame *in)
 
 int WebSocketChannelClient::send_header_req()
 {
-	WSHearderReq *task = this->safe_new_channel_msg<WSHearderReq>();
+	WSHearderReq *task =
+		this->safe_new_channel_msg<WSHearderReq>(WFC_MSG_STATE_OUT_WRITE_LIST);
 
 	if (!task)
 	{
@@ -293,7 +291,7 @@ int WebSocketChannelClient::send_header_req()
 
 int WebSocketChannelServer::process_header_req(protocol::HttpRequest *req)
 {
-	WSHearderRsp *task = this->safe_new_channel_msg<WSHearderRsp>();
+	WSHearderRsp *task = this->safe_new_channel_msg<WSHearderRsp>(WFC_MSG_STATE_OUT);
 	if (!task)
 		return -1;
 
