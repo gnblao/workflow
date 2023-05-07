@@ -1175,7 +1175,7 @@ void Communicator::handle_listen_result(struct poller_result *res)
 			if (service->ssl_ctx)
 			{
 				if (__create_ssl(service->ssl_ctx, entry) >= 0 &&
-					service->init_ssl(entry->ssl) >= 0)
+				    service->init_ssl(entry->ssl) >= 0)
 				{
 					res->data.operation = PD_OP_SSL_ACCEPT;
 					timeout = service->ssl_accept_timeout;
@@ -1993,7 +1993,7 @@ int Communicator::channel_send_one(CommSession *session)
 		}
 
 		entry->is_channel = 2;
-		while (session->out = session->message_out())
+		while ((session->out = session->message_out()) != NULL)
 		{
 			ret = this->send_message(entry);
 			if (ret != 0)
@@ -2037,7 +2037,7 @@ int Communicator::channel_send_callback(CommSession *session)
 		return -1;
 
 	entry->is_channel = 3;
-	while (session->out = session->message_out())
+	while ((session->out = session->message_out()) != NULL)
 	{
 		ret = this->send_message(entry);
 		if (ret != 0)
