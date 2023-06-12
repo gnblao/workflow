@@ -83,6 +83,10 @@ private:
 	virtual int create_pipe_fd(int pipe_fd[2]) { return pipe(pipe_fd); }
 
 private:
+	int maxevents;
+	int nevents;
+
+private:
 	void incref();
 	void decref();
 
