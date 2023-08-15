@@ -301,6 +301,8 @@ public:
 
 	int push(const void *buf, size_t size, CommSession *session);
 
+	int shutdown(CommSession *session);
+
 	int bind(CommService *service);
 	void unbind(CommService *service);
 
