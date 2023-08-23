@@ -98,6 +98,8 @@ int MySQLMessage::append(const void *buf, size_t *size)
 {
 	const void *stream_buf;
 	size_t stream_len;
+	size_t nleft = *size;
+	size_t n;
 	int ret;
 
 	cur_size_ += *size;
@@ -107,17 +109,24 @@ int MySQLMessage::append(const void *buf, size_t *size)
 		return -1;
 	}
 
-	ret = mysql_stream_write(buf, *size, stream_);
-	if (ret > 0)
+	while (nleft > 0)
 	{
-		seqid_ = mysql_stream_get_seq(stream_);
-		mysql_stream_get_buf(&stream_buf, &stream_len, stream_);
-		ret = decode_packet((const unsigned char *)stream_buf, stream_len);
-		if (ret == -2)
+		n = nleft;
+		ret = mysql_stream_write(buf, &n, stream_);
+		if (ret > 0)
 		{
-			errno = EBADMSG;
-			ret = -1;
+			seqid_ = mysql_stream_get_seq(stream_);
+			mysql_stream_get_buf(&stream_buf, &stream_len, stream_);
+			ret = decode_packet((const unsigned char *)stream_buf, stream_len);
+			if (ret == -2)
+				errno = EBADMSG;
 		}
+
+		if (ret < 0)
+			return -1;
+
+		nleft -= n;
+		buf = (const char *)buf + n;
 	}
 
 	return ret;
@@ -190,6 +199,7 @@ std::string MySQLRequest::get_query() const
 #define MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS	0x00040000
 #define MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH		0x00080000
 #define MYSQL_CAPFLAG_CLIENT_LOCAL_FILES		0x00000080
+#define MYSQL_CAPFLAG_CLIENT_SESSION_TRACK		(1 << 23)
 
 int MySQLHandshakeResponse::encode(struct iovec vectors[], int max)
 {
@@ -336,7 +346,8 @@ int MySQLSSLRequest::encode(struct iovec vectors[], int max)
 				   MYSQL_CAPFLAG_CLIENT_LOCAL_FILES |
 				   MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS |
 				   MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS |
-				   MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH);
+				   MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH |
+				   MYSQL_CAPFLAG_CLIENT_SESSION_TRACK);
 	pos += 4;
 	int4store(pos, 0);
 	pos += 4;
@@ -374,7 +385,8 @@ int MySQLAuthRequest::encode(struct iovec vectors[], int max)
 				   MYSQL_CAPFLAG_CLIENT_LOCAL_FILES |
 				   MYSQL_CAPFLAG_CLIENT_MULTI_STATEMENTS |
 				   MYSQL_CAPFLAG_CLIENT_PS_MULTI_RESULTS |
-				   MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH);
+				   MYSQL_CAPFLAG_CLIENT_PLUGIN_AUTH |
+				   MYSQL_CAPFLAG_CLIENT_SESSION_TRACK);
 	pos += 4;
 	int4store(pos, 0);
 	pos += 4;
@@ -440,7 +452,6 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 	const unsigned char *pos;
 	const unsigned char *str;
 	unsigned long long len;
-	int ret;
 
 	if (end == buf)
 		return -2;
@@ -472,11 +483,7 @@ int MySQLAuthResponse::decode_packet(const unsigned char *buf, size_t buflen)
 
 	default:
 		pos = buf;
-		ret = decode_string(&str, &len, &pos, end);
-		if (ret <= 0)
-			return ret;
-
-		if (len == 1)
+		if (decode_string(&str, &len, &pos, end) > 0 && len == 1)
 		{
 			if (*str == 0x03)
 			{
