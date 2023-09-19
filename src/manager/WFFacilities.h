@@ -15,11 +15,13 @@
 
   Authors: Li Yingxin (liyingxin@sogou-inc.com)
            Wu Jiaxu (wujiaxu@sogou-inc.com)
+           Xie Han (xiehan@sogou-inc.com)
 */
 
 #ifndef _WFFACILITIES_H_
 #define _WFFACILITIES_H_
 
+#include <assert.h>
 #include "WFFuture.h"
 #include "WFTaskFactory.h"
 
@@ -74,6 +76,28 @@ public:
 		std::atomic<int> nleft;
 		WFCounterTask *task;
 		WFFuture<void> future;
+	};
+
+public:
+	class ReplyGuard
+	{
+	public:
+		ReplyGuard(SubTask *server_task)
+		{
+			SeriesWork *series = series_of(server_task);
+			assert(series);
+			assert(server_task == series->get_last_task());
+			this->cond = WFTaskFactory::create_conditional(server_task);
+			series->set_last_task(this->cond);
+		}
+
+		~ReplyGuard()
+		{
+			this->cond->signal(NULL);
+		}
+
+	private:
+		WFConditional *cond;
 	};
 
 private:
