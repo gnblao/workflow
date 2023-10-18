@@ -40,6 +40,12 @@ public:
 	virtual void unsleep() { this->scheduler->unsleep(this); }
 
 protected:
+	int cancel()
+	{
+		return this->scheduler->unsleep(this);
+	}
+
+protected:
 	int state;
 	int error;
 

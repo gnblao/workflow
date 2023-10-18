@@ -154,6 +154,11 @@ __WFGlobal::__WFGlobal()
 	static_scheme_port_["wss"] = "443";
 	static_scheme_port_["Wss"] = "443";
 	static_scheme_port_["WSs"] = "443";
+	
+    static_scheme_port_["kafkas"] = "9093";
+	static_scheme_port_["Kafkas"] = "9093";
+	static_scheme_port_["KAFKAs"] = "9093";
+	static_scheme_port_["KAFKAS"] = "9093";
 
 	sync_count_ = 0;
 	sync_max_ = 0;
@@ -896,6 +901,9 @@ const char *WFGlobal::get_error_string(int state, int error)
 
 	case WFT_STATE_TASK_ERROR:
 		return __get_task_error_string(error);
+
+	case WFT_STATE_ABORTED:
+		return "Aborted";
 
 	case WFT_STATE_UNDEFINED:
 		return "Undefined";

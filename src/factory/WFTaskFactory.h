@@ -13,8 +13,8 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  Authors: Wu Jiaxu (wujiaxu@sogou-inc.com)
-           Xie Han (xiehan@sogou-inc.com)
+  Authors: Xie Han (xiehan@sogou-inc.com)
+           Wu Jiaxu (wujiaxu@sogou-inc.com)
 */
 
 #ifndef _WFTASKFACTORY_H_
@@ -218,13 +218,27 @@ public:
 											  fvio_callback_t callback);
 
 public:
-	static WFTimerTask *create_timer_task(unsigned int microseconds,
-										  timer_callback_t callback,
-                                          std::function<void(unsigned long long)> return_id_fn =nullptr);
-
 	static WFTimerTask *create_timer_task(time_t seconds, long nanoseconds,
 										  timer_callback_t callback,
                                           std::function<void(unsigned long long)> return_id_fn =nullptr);
+
+	/* create a named timer. */
+	static WFTimerTask *create_timer_task(const std::string& timer_name,
+										  time_t seconds, long nanoseconds,
+										  timer_callback_t callback);
+
+	/* cancel all timers under the name. */
+	static void cancel_by_name(const std::string& timer_name)
+	{
+		WFTaskFactory::cancel_by_name(timer_name, (size_t)-1);
+	}
+
+	/* cancel at most 'max' timers under the name. */
+	static void cancel_by_name(const std::string& timer_name, size_t max);
+
+	/* timer in microseconds (deprecated) */
+	static WFTimerTask *create_timer_task(unsigned int microseconds,
+										  timer_callback_t callback);
 
 	/* Counter is like semaphore. The callback of counter is called when
 	 * 'count' operations reach target_value & after the task is started.
@@ -301,7 +315,8 @@ public:
 									FUNC&& func, ARGS&&... args);
 
 	/* Create 'Go' task with running time limit in seconds plus nanoseconds.
-	 * If time exceeded, state WFT_STATE_ABORTED will be got in callback. */
+	 * If time exceeded, state WFT_STATE_SYS_ERROR and error ETIMEDOUT
+	 * will be got in callback. */
 	template<class FUNC, class... ARGS>
 	static WFGoTask *create_timedgo_task(time_t seconds, long nanoseconds,
 										 const std::string& queue_name,
@@ -364,23 +379,23 @@ private:
 	using T = WFNetworkTask<REQ, RESP>;
 
 public:
-	static T *create_client_task(TransportType type,
+	static T *create_client_task(enum TransportType type,
 								 const std::string& host,
 								 unsigned short port,
 								 int retry_max,
 								 std::function<void (T *)> callback);
 
-	static T *create_client_task(TransportType type,
+	static T *create_client_task(enum TransportType type,
 								 const std::string& url,
 								 int retry_max,
 								 std::function<void (T *)> callback);
 
-	static T *create_client_task(TransportType type,
+	static T *create_client_task(enum TransportType type,
 								 const ParsedURI& uri,
 								 int retry_max,
 								 std::function<void (T *)> callback);
 
-	static T *create_client_task(TransportType type,
+	static T *create_client_task(enum TransportType type,
 								 const struct sockaddr *addr,
 								 socklen_t addrlen,
 								 int retry_max,

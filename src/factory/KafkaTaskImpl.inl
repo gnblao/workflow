@@ -40,22 +40,10 @@ public:
 											int retry_max,
 											__kafka_callback_t callback);
 
-	static __WFKafkaTask *create_kafka_task(const struct sockaddr *addr,
-											socklen_t addrlen,
-											const std::string& info,
-											int retry_max,
-											__kafka_callback_t callback);
-
-	static __WFKafkaTask *create_kafka_task(const char *host,
+	static __WFKafkaTask *create_kafka_task(enum TransportType type,
+											const char *host,
 											unsigned short port,
 											const std::string& info,
 											int retry_max,
 											__kafka_callback_t callback);
 };
-
-struct __ComplexKafkaTaskCtx
-{
-	int kafka_error;
-	__kafka_callback_t cb;
-};
-

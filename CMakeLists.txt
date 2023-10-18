@@ -6,7 +6,7 @@ set(CMAKE_SKIP_RPATH TRUE)
 
 project(
 	workflow
-	VERSION 0.10.9
+	VERSION 0.11.1
 	LANGUAGES C CXX
 )
 

@@ -120,11 +120,10 @@ public:
 			if (this->ping_interval > 0)
 			{
 				auto timer = WFTaskFactory::create_timer_task(
-					this->ping_interval * 1000,
+					this->ping_interval/1000, (this->ping_interval % 1000) * 1000000,
 					std::bind(&WebSocketChannel::timer_callback, this,
 						  std::placeholders::_1),
-					[this](unsigned long long id)
-					{ this->ping_timerid = id; });
+					[this](unsigned long long id) { this->ping_timerid = id; });
 
 				this->channel->set_delete_cb(
 					std::bind(&WebSocketChannel::delete_callback, this));
@@ -154,7 +153,7 @@ private:
 	{
 		if (this->ping_timerid)
 		{
-			WFGlobal::get_scheduler()->unsleep(this->ping_timerid);
+			WFGlobal::get_scheduler()->unsleep_byid(this->ping_timerid);
 		}
 	}
 

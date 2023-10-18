@@ -48,41 +48,43 @@ struct __mpoller
 
 static inline int mpoller_add(const struct poller_data *data, int timeout, mpoller_t *mpoller)
 {
-	unsigned int index = (unsigned int)data->fd % mpoller->nthreads;
+	int index = (unsigned int)data->fd % mpoller->nthreads;
 	return poller_add(data, timeout, mpoller->poller[index]);
 }
 
 static inline int mpoller_del(int fd, mpoller_t *mpoller)
 {
-	unsigned int index = (unsigned int)fd % mpoller->nthreads;
+	int index = (unsigned int)fd % mpoller->nthreads;
 	return poller_del(fd, mpoller->poller[index]);
 }
 
 static inline int mpoller_mod(const struct poller_data *data, int timeout, mpoller_t *mpoller)
 {
-	unsigned int index = (unsigned int)data->fd % mpoller->nthreads;
+	int index = (unsigned int)data->fd % mpoller->nthreads;
 	return poller_mod(data, timeout, mpoller->poller[index]);
 }
 
 static inline int mpoller_set_timeout(int fd, int timeout, mpoller_t *mpoller)
 {
-	unsigned int index = (unsigned int)fd % mpoller->nthreads;
+	int index = (unsigned int)fd % mpoller->nthreads;
 	return poller_set_timeout(fd, timeout, mpoller->poller[index]);
 }
 
-static inline int mpoller_add_timer(const struct timespec *value, void *context,
-				    mpoller_t *mpoller, unsigned long long *timerid)
+static inline int mpoller_add_timer(const struct timespec *value, void *context, void **timer,
+				    int *index, unsigned long long *timerid, mpoller_t *mpoller)
 {
 	static volatile unsigned int n = 0;
-	unsigned int index = n++ % mpoller->nthreads;
-
 	poller_timerid_t tid;
-	tid.poller_id = index;
-	tid.id_key = n;
 
-	int ret = poller_add_timer(value, context, mpoller->poller[index], &tid);
+	tid.id_key = n++;
+	tid.poller_id = tid.id_key % mpoller->nthreads;
+
+	int ret = poller_add_timer(value, context, timer, &tid, mpoller->poller[tid.poller_id]);
 	if (ret)
 		return ret;
+
+	if (index)
+		*index = tid.poller_id;
 
 	if (timerid)
 		*timerid = tid.u64;
@@ -90,17 +92,31 @@ static inline int mpoller_add_timer(const struct timespec *value, void *context,
 	return ret;
 }
 
-static inline int mpoller_del_timer(unsigned long long timerid, mpoller_t *mpoller)
+//static inline int mpoller_add_timer(const struct timespec *value, void *context,
+//									void **timer, int *index,
+//									mpoller_t *mpoller)
+//{
+//	static unsigned int n = 0;
+//	*index = n++ % mpoller->nthreads;
+//	return poller_add_timer(value, context, timer, NULL, mpoller->poller[*index]);
+//}
+
+static inline int mpoller_del_timer_byid(unsigned long long timerid, mpoller_t *mpoller)
 {
 	poller_timerid_t tid;
 	tid.u64 = timerid;
 
 	if (tid.bitmap_id > 0 && tid.poller_id < mpoller->nthreads)
 	{
-		return poller_del_timer(tid, mpoller->poller[tid.poller_id]);
+		return poller_del_timer_byid(tid, mpoller->poller[tid.poller_id]);
 	}
 
 	return -1;
+}
+
+static inline int mpoller_del_timer(void *timer, int index, mpoller_t *mpoller)
+{
+	return poller_del_timer(timer, mpoller->poller[index]);
 }
 
 #endif

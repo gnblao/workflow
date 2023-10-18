@@ -155,11 +155,15 @@ public:
 	void unbind(CommService *service) { this->comm.unbind(service); }
 
 	/* for sleepers. */
+	int unsleep_byid(unsigned long long timerid) { return this->comm.unsleep_byid(timerid); }
+	int unsleep_byid(SleepSession *session) { return this->comm.unsleep_byid(session->timerid); }
+
 	int sleep(SleepSession *session) { return this->comm.sleep(session); }
-
-	int unsleep(unsigned long long timerid) { return this->comm.unsleep(timerid); }
-
-	int unsleep(SleepSession *session) { return this->comm.unsleep(session); }
+	/* Call 'unsleep' only before 'handle()' returns. */
+	int unsleep(SleepSession *session)
+	{
+		return this->comm.unsleep(session);
+	}
 
 	/* for file aio services. */
 	int io_bind(IOService *service) { return this->comm.io_bind(service); }
