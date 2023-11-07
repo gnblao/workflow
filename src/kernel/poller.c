@@ -28,7 +28,6 @@
 #undef SLIST_HEAD
 #endif
 #include <errno.h>
-#include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -915,12 +914,11 @@ static void __poller_handle_timeout(const struct __poller_node *time_node, polle
 		if (__timeout_cmp(node, time_node) > 0)
 			break;
 
-        if (node->data.operation == PD_OP_TIMER &&
-                node->data.timerid.bitmap_id > 0)
-        {
-            poller->timer_nodes[node->data.timerid.bitmap_id] = NULL;
-            bitmap_clear_bit(poller->timer_bmp, node->data.timerid.bitmap_id);
-        }
+		if (node->data.operation == PD_OP_TIMER && node->data.timerid.bitmap_id > 0)
+		{
+			poller->timer_nodes[node->data.timerid.bitmap_id] = NULL;
+			bitmap_clear_bit(poller->timer_bmp, node->data.timerid.bitmap_id);
+		}
 
 		if (node->data.fd >= 0)
 		{
@@ -939,13 +937,11 @@ static void __poller_handle_timeout(const struct __poller_node *time_node, polle
 		if (__timeout_cmp(node, time_node) > 0)
 			break;
 
-        if (node->data.operation == PD_OP_TIMER &&
-                node->data.timerid.bitmap_id > 0)
-        {
-            poller->timer_nodes[node->data.timerid.bitmap_id] = NULL;
-            bitmap_clear_bit(poller->timer_bmp,
-                    node->data.timerid.bitmap_id);
-        }
+		if (node->data.operation == PD_OP_TIMER && node->data.timerid.bitmap_id > 0)
+		{
+			poller->timer_nodes[node->data.timerid.bitmap_id] = NULL;
+			bitmap_clear_bit(poller->timer_bmp, node->data.timerid.bitmap_id);
+		}
 
 		if (node->data.fd >= 0)
 		{
@@ -1312,8 +1308,8 @@ static int __poller_data_get_event(int *event, const struct poller_data *data)
 	}
 }
 
-static struct __poller_node *__poller_new_node(const struct poller_data *data,
-											   int timeout, poller_t *poller)
+static struct __poller_node *__poller_new_node(const struct poller_data *data, int timeout,
+					       poller_t *poller)
 {
 	struct __poller_node *res = NULL;
 	struct __poller_node *node;
@@ -1459,7 +1455,7 @@ int poller_mod(const struct poller_data *data, int timeout, poller_t *poller)
 			if (!stopped)
 			{
 				orig->removed = 1;
-				write(poller->pipe_wr, &orig, sizeof (void *));
+				write(poller->pipe_wr, &orig, sizeof(void *));
 			}
 
 			if (timeout >= 0)
@@ -1640,7 +1636,7 @@ int poller_del_timer(void *timer, poller_t *poller)
 		node->state = PR_ST_DELETED;
 		stopped = poller->stopped;
 		if (!stopped)
-			write(poller->pipe_wr, &node, sizeof (void *));
+			write(poller->pipe_wr, &node, sizeof(void *));
 	}
 	else
 	{
