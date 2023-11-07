@@ -74,22 +74,21 @@ static inline int mpoller_add_timer(const struct timespec *value, void *context,
 				    int *index, unsigned long long *timerid, mpoller_t *mpoller)
 {
 	static volatile unsigned int n = 0;
-	poller_timerid_t tid;
+	poller_timerid_t *tid, _tid;
 
-	tid.id_key = n++;
-	tid.poller_id = tid.id_key % mpoller->nthreads;
+    if (timerid)
+        tid = (poller_timerid_t *)timerid;
+    else {
+        tid = &_tid;
+    }
 
-	int ret = poller_add_timer(value, context, timer, &tid, mpoller->poller[tid.poller_id]);
-	if (ret)
-		return ret;
+	tid->id_key = n++;
+	tid->poller_id = tid->id_key % mpoller->nthreads;
 
-	if (index)
-		*index = tid.poller_id;
+    if (index)
+		*index = tid->poller_id;
 
-	if (timerid)
-		*timerid = tid.u64;
-
-	return ret;
+	return  poller_add_timer(value, context, timer, tid, mpoller->poller[tid->poller_id]);
 }
 
 //static inline int mpoller_add_timer(const struct timespec *value, void *context,
