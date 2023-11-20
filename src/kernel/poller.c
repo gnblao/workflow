@@ -133,6 +133,11 @@ static inline int __poller_create_timerfd()
 	return timerfd_create(CLOCK_MONOTONIC, 0);
 }
 
+static inline int __poller_close_timerfd(int fd)
+{
+	return close(fd);
+}
+
 static inline int __poller_add_timerfd(int fd, poller_t *poller)
 {
 	// clang-format off
@@ -199,7 +204,12 @@ static inline int __poller_mod_fd(int fd, int old_event, int new_event, void *da
 
 static inline int __poller_create_timerfd()
 {
-	return dup(0);
+	return 0;
+}
+
+static inline int __poller_close_timerfd(int fd)
+{
+	return 0;
 }
 
 static inline int __poller_add_timerfd(int fd, poller_t *poller)
@@ -1112,7 +1122,7 @@ static int __poller_create_timer(poller_t *poller)
 			return 0;
 		}
 
-		close(timerfd);
+		__poller_close_timerfd(timerfd);
 	}
 
 	return -1;
@@ -1190,7 +1200,7 @@ poller_t *poller_create(const struct poller_params *params)
 void __poller_destroy(poller_t *poller)
 {
 	pthread_mutex_destroy(&poller->mutex);
-	close(poller->timerfd);
+	__poller_close_timerfd(poller->timerfd);
 	close(poller->pfd);
 	free(poller->timer_nodes);
 	free(poller);
@@ -1526,6 +1536,7 @@ int poller_set_timeout(int fd, int timeout, poller_t *poller)
 int poller_del_timer_byid(poller_timerid_t timerid, poller_t *poller)
 {
 	struct __poller_node *node;
+    int ret;
 
 	if (timerid.bitmap_id >= POLLER_TIMER_MAX)
 	{
@@ -1533,9 +1544,9 @@ int poller_del_timer_byid(poller_timerid_t timerid, poller_t *poller)
 		return -1;
 	}
 
-	pthread_mutex_lock(&poller->mutex);
+    pthread_mutex_lock(&poller->mutex);
 	node = poller->timer_nodes[timerid.bitmap_id];
-	if (node && node->data.timerid.id_key == timerid.id_key)
+	if (node && node->data.timerid.id_key == timerid.id_key && !node->removed)
 	{
 		if (node->in_rbtree)
 			__poller_tree_erase(node, poller);
@@ -1557,12 +1568,17 @@ int poller_del_timer_byid(poller_timerid_t timerid, poller_t *poller)
 			node->removed = 1;
 			write(poller->pipe_wr, &node, sizeof(void *));
 		}
-	}
-	else
-		errno = ENOENT;
 
-	pthread_mutex_unlock(&poller->mutex);
-	return -!node;
+        ret = 0;
+	}
+	else {
+		errno = ENOENT;
+        ret = -1;
+    }
+	
+    pthread_mutex_unlock(&poller->mutex);
+	
+    return ret;
 }
 
 int poller_add_timer(const struct timespec *value, void *context, void **timer,
@@ -1620,7 +1636,6 @@ int poller_add_timer(const struct timespec *value, void *context, void **timer,
 int poller_del_timer(void *timer, poller_t *poller)
 {
 	struct __poller_node *node = (struct __poller_node *)timer;
-	int stopped = 0;
 
 	pthread_mutex_lock(&poller->mutex);
 	if (!node->removed)
@@ -1631,12 +1646,6 @@ int poller_del_timer(void *timer, poller_t *poller)
 			__poller_tree_erase(node, poller);
 		else
 			list_del(&node->list);
-
-		node->error = 0;
-		node->state = PR_ST_DELETED;
-		stopped = poller->stopped;
-		if (!stopped)
-			write(poller->pipe_wr, &node, sizeof(void *));
 	}
 	else
 	{
@@ -1645,10 +1654,15 @@ int poller_del_timer(void *timer, poller_t *poller)
 	}
 
 	pthread_mutex_unlock(&poller->mutex);
-	if (stopped)
+	if (node)
+	{
+		node->error = 0;
+		node->state = PR_ST_DELETED;
 		poller->callback((struct poller_result *)node, poller->context);
+		return 0;
+	}
 
-	return -!node;
+	return -1;
 }
 
 void poller_stop(poller_t *poller)

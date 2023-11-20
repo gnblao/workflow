@@ -121,14 +121,16 @@ static T *__get_object_list(const std::string& name, struct rb_root *root,
 	struct rb_node **p = &root->rb_node;
 	struct rb_node *parent = NULL;
 	T *objs;
+	int n;
 
 	while (*p)
 	{
 		parent = *p;
 		objs = rb_entry(*p, T, rb);
-		if (name < objs->name)
+		n = name.compare(objs->name);
+		if (n < 0)
 			p = &(*p)->rb_left;
-		else if (name > objs->name)
+		else if (n > 0)
 			p = &(*p)->rb_right;
 		else
 			return objs;
