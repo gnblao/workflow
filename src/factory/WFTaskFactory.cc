@@ -99,14 +99,16 @@ struct __NamedObjectList
 		return list_empty(&this->head);
 	}
 
-	void del(T *node, rb_root *root)
+	bool del(T *node, rb_root *root)
 	{
 		list_del(&node->list);
 		if (this->empty())
 		{
 			rb_erase(&this->rb, root);
-			delete this;
+			return true;
 		}
+		else
+			return false;
 	}
 
 	struct rb_node rb;
@@ -160,7 +162,7 @@ struct __timer_node
 static class __NamedTimerMap
 {
 public:
-	using TimerList = struct __NamedObjectList<struct __timer_node>;
+	using TimerList = __NamedObjectList<struct __timer_node>;
 
 public:
 	WFTimerTask *create(const std::string& name,
@@ -206,9 +208,15 @@ public:
 	{
 		if (node_.task)
 		{
-			std::lock_guard<std::mutex> lock(__timer_map.mutex_);
+			bool erased = false;
+
+			__timer_map.mutex_.lock();
 			if (node_.task)
-				timers_->del(&node_, &__timer_map.root_);
+				erased = timers_->del(&node_, &__timer_map.root_);
+
+			__timer_map.mutex_.unlock();
+			if (erased)
+				delete timers_;
 		}
 	}
 
@@ -242,12 +250,18 @@ void __WFNamedTimerTask::handle(int state, int error)
 {
 	if (node_.task)
 	{
-		std::lock_guard<std::mutex> lock(__timer_map.mutex_);
+		bool erased = false;
+
+		__timer_map.mutex_.lock();
 		if (node_.task)
 		{
-			timers_->del(&node_, &__timer_map.root_);
+			erased = timers_->del(&node_, &__timer_map.root_);
 			node_.task = NULL;
 		}
+
+		__timer_map.mutex_.unlock();
+		if (erased)
+			delete timers_;
 	}
 
 	mutex_.lock();
@@ -273,14 +287,17 @@ void __NamedTimerMap::cancel(const std::string& name, size_t max)
 	struct __timer_node *node;
 	TimerList *timers;
 
-	std::lock_guard<std::mutex> lock(mutex_);
+	mutex_.lock();
 	timers = __get_object_list<TimerList>(name, &root_, false);
 	if (timers)
 	{
-		do
+		while (1)
 		{
 			if (max == 0)
-				return;
+			{
+				timers = NULL;
+				break;
+			}
 
 			node = list_entry(timers->head.next, struct __timer_node, list);
 			list_del(&node->list);
@@ -289,11 +306,16 @@ void __NamedTimerMap::cancel(const std::string& name, size_t max)
 
 			node->task = NULL;
 			max--;
-		} while (!timers->empty());
-
-		rb_erase(&timers->rb, &root_);
-		delete timers;
+			if (timers->empty())
+			{
+				rb_erase(&timers->rb, &root_);
+				break;
+			}
+		}
 	}
+
+	mutex_.unlock();
+	delete timers;
 }
 
 WFTimerTask *WFTaskFactory::create_timer_task(const std::string& name,
@@ -324,7 +346,7 @@ struct __counter_node
 static class __NamedCounterMap
 {
 public:
-	using CounterList = struct __NamedObjectList<struct __counter_node>;
+	using CounterList = __NamedObjectList<struct __counter_node>;
 
 public:
 	WFCounterTask *create(const std::string& name, unsigned int target_value,
@@ -335,13 +357,17 @@ public:
 
 	void remove(CounterList *counters, struct __counter_node *node)
 	{
+		bool erased;
+
 		mutex_.lock();
-		counters->del(node, &root_);
+		erased = counters->del(node, &root_);
 		mutex_.unlock();
+		if (erased)
+			delete counters;
 	}
 
 private:
-	void count_n_locked(CounterList *counters, unsigned int n,
+	bool count_n_locked(CounterList *counters, unsigned int n,
 						struct list_head *task_list);
 	struct rb_root root_;
 	std::mutex mutex_;
@@ -399,32 +425,33 @@ WFCounterTask *__NamedCounterMap::create(const std::string& name,
 	return task;
 }
 
-void __NamedCounterMap::count_n_locked(CounterList *counters, unsigned int n,
+bool __NamedCounterMap::count_n_locked(CounterList *counters, unsigned int n,
 									   struct list_head *task_list)
 {
 	struct __counter_node *node;
 
-	do
+	while (n > 0)
 	{
-		if (n == 0)
-			return;
-
 		node = list_entry(counters->head.next, struct __counter_node, list);
 		if (n >= node->target_value)
 		{
 			n -= node->target_value;
 			node->target_value = 0;
 			list_move_tail(&node->list, task_list);
+			if (counters->empty())
+			{
+				rb_erase(&counters->rb, &root_);
+				return true;
+			}
 		}
 		else
 		{
 			node->target_value -= n;
-			n = 0;
+			break;
 		}
-	} while (!counters->empty());
+	}
 
-	rb_erase(&counters->rb, &root_);
-	delete counters;
+	return false;
 }
 
 void __NamedCounterMap::count_n(const std::string& name, unsigned int n)
@@ -432,13 +459,17 @@ void __NamedCounterMap::count_n(const std::string& name, unsigned int n)
 	LIST_HEAD(task_list);
 	struct __counter_node *node;
 	CounterList *counters;
+	bool erased = false;
 
 	mutex_.lock();
 	counters = __get_object_list<CounterList>(name, &root_, false);
 	if (counters)
-		count_n_locked(counters, n, &task_list);
+		erased = count_n_locked(counters, n, &task_list);
 
 	mutex_.unlock();
+	if (erased)
+		delete counters;
+
 	while (!list_empty(&task_list))
 	{
 		node = list_entry(task_list.next, struct __counter_node, list);
@@ -451,15 +482,19 @@ void __NamedCounterMap::count(CounterList *counters,
 							  struct __counter_node *node)
 {
 	__WFNamedCounterTask *task = NULL;
+	bool erased = false;
 
 	mutex_.lock();
 	if (--node->target_value == 0)
 	{
 		task = node->task;
-		counters->del(node, &root_);
+		erased = counters->del(node, &root_);
 	}
 
 	mutex_.unlock();
+	if (erased)
+		delete counters;
+
 	if (task)
 		task->WFCounterTask::count();
 }
@@ -489,7 +524,7 @@ struct __mailbox_node
 static class __NamedMailboxMap
 {
 public:
-	using MailboxList = struct __NamedObjectList<struct __mailbox_node>;
+	using MailboxList = __NamedObjectList<struct __mailbox_node>;
 
 public:
 	WFMailboxTask *create(const std::string& name, void **mailbox,
@@ -501,13 +536,17 @@ public:
 
 	void remove(MailboxList *mailboxes, struct __mailbox_node *node)
 	{
+		bool erased;
+
 		mutex_.lock();
-		mailboxes->del(node, &root_);
+		erased = mailboxes->del(node, &root_);
 		mutex_.unlock();
+		if (erased)
+			delete mailboxes;
 	}
 
 private:
-	void send_max_locked(MailboxList *mailboxes, void *msg, size_t max,
+	bool send_max_locked(MailboxList *mailboxes, void *msg, size_t max,
 						 struct list_head *task_list);
 	struct rb_root root_;
 	std::mutex mutex_;
@@ -577,7 +616,7 @@ WFMailboxTask *__NamedMailboxMap::create(const std::string& name,
 	return task;
 }
 
-void __NamedMailboxMap::send_max_locked(MailboxList *mailboxes,
+bool __NamedMailboxMap::send_max_locked(MailboxList *mailboxes,
 										void *msg, size_t max,
 										struct list_head *task_list)
 {
@@ -588,7 +627,7 @@ void __NamedMailboxMap::send_max_locked(MailboxList *mailboxes,
 		do
 		{
 			if (max == 0)
-				return;
+				return false;
 
 			list_move_tail(mailboxes->head.next, task_list);
 			max--;
@@ -596,7 +635,7 @@ void __NamedMailboxMap::send_max_locked(MailboxList *mailboxes,
 	}
 
 	rb_erase(&mailboxes->rb, &root_);
-	delete mailboxes;
+	return true;
 }
 
 void __NamedMailboxMap::send(const std::string& name, void *msg, size_t max)
@@ -604,13 +643,17 @@ void __NamedMailboxMap::send(const std::string& name, void *msg, size_t max)
 	LIST_HEAD(task_list);
 	struct __mailbox_node *node;
 	MailboxList *mailboxes;
+	bool erased = false;
 
 	mutex_.lock();
 	mailboxes = __get_object_list<MailboxList>(name, &root_, false);
 	if (mailboxes)
-		send_max_locked(mailboxes, msg, max, &task_list);
+		erased = send_max_locked(mailboxes, msg, max, &task_list);
 
 	mutex_.unlock();
+	if (erased)
+		delete mailboxes;
+
 	while (!list_empty(&task_list))
 	{
 		node = list_entry(task_list.next, struct __mailbox_node, list);
@@ -623,9 +666,14 @@ void __NamedMailboxMap::send(MailboxList *mailboxes,
 							 struct __mailbox_node *node,
 							 void *msg)
 {
+	bool erased;
+
 	mutex_.lock();
-	mailboxes->del(node, &root_);
+	erased = mailboxes->del(node, &root_);
 	mutex_.unlock();
+	if (erased)
+		delete mailboxes;
+
 	node->task->WFMailboxTask::send(msg);
 }
 
@@ -660,7 +708,7 @@ struct __conditional_node
 static class __NamedConditionalMap
 {
 public:
-	using ConditionalList = struct __NamedObjectList<struct __conditional_node>;
+	using ConditionalList = __NamedObjectList<struct __conditional_node>;
 
 public:
 	WFConditional *create(const std::string& name, SubTask *task,
@@ -673,13 +721,17 @@ public:
 
 	void remove(ConditionalList *conds, struct __conditional_node *node)
 	{
+		bool erased;
+
 		mutex_.lock();
-		conds->del(node, &root_);
+		erased = conds->del(node, &root_);
 		mutex_.unlock();
+		if (erased)
+			delete conds;
 	}
 
 private:
-	void signal_max_locked(ConditionalList *conds, void *msg, size_t max,
+	bool signal_max_locked(ConditionalList *conds, void *msg, size_t max,
 						   struct list_head *cond_list);
 	struct rb_root root_;
 	std::mutex mutex_;
@@ -748,7 +800,7 @@ WFConditional *__NamedConditionalMap::create(const std::string& name,
 	return cond;
 }
 
-void __NamedConditionalMap::signal_max_locked(ConditionalList *conds,
+bool __NamedConditionalMap::signal_max_locked(ConditionalList *conds,
 											  void *msg, size_t max,
 											  struct list_head *cond_list)
 {
@@ -759,7 +811,7 @@ void __NamedConditionalMap::signal_max_locked(ConditionalList *conds,
 		do
 		{
 			if (max == 0)
-				return;
+				return false;
 
 			list_move_tail(conds->head.next, cond_list);
 			max--;
@@ -767,7 +819,7 @@ void __NamedConditionalMap::signal_max_locked(ConditionalList *conds,
 	}
 
 	rb_erase(&conds->rb, &root_);
-	delete conds;
+	return true;
 }
 
 void __NamedConditionalMap::signal(const std::string& name, void *msg, size_t max)
@@ -775,13 +827,17 @@ void __NamedConditionalMap::signal(const std::string& name, void *msg, size_t ma
 	LIST_HEAD(cond_list);
 	struct __conditional_node *node;
 	ConditionalList *conds;
+	bool erased = false;
 
 	mutex_.lock();
 	conds = __get_object_list<ConditionalList>(name, &root_, false);
 	if (conds)
-		signal_max_locked(conds, msg, max, &cond_list);
+		erased = signal_max_locked(conds, msg, max, &cond_list);
 
 	mutex_.unlock();
+	if (erased)
+		delete conds;
+
 	while (!list_empty(&cond_list))
 	{
 		node = list_entry(cond_list.next, struct __conditional_node, list);
@@ -794,9 +850,14 @@ void __NamedConditionalMap::signal(ConditionalList *conds,
 								   struct __conditional_node *node,
 								   void *msg)
 {
+	bool erased;
+
 	mutex_.lock();
-	conds->del(node, &root_);
+	erased = conds->del(node, &root_);
 	mutex_.unlock();
+	if (erased)
+		delete conds;
+
 	node->cond->WFConditional::signal(msg);
 }
 
@@ -816,6 +877,204 @@ void WFTaskFactory::signal_by_name(const std::string& name, void *msg,
 								   size_t max)
 {
 	__conditional_map.signal(name, msg, max);
+}
+
+/****************** Named Guard ******************/
+
+class __WFNamedGuard;
+
+struct __guard_node
+{
+	struct list_head list;
+	__WFNamedGuard *guard;
+};
+
+static class __NamedGuardMap
+{
+public:
+	struct GuardList : public __NamedObjectList<struct __guard_node>
+	{
+		GuardList(const std::string& name) : __NamedObjectList(name)
+		{
+			acquired = false;
+			refcnt = 0;
+		}
+
+		bool acquired;
+		size_t refcnt;
+		std::mutex mutex;
+	};
+
+public:
+	WFConditional *create(const std::string& name, SubTask *task);
+	WFConditional *create(const std::string& name, SubTask *task,
+						  void **msgbuf);
+
+	struct __guard_node *release(const std::string& name);
+
+	void unref(GuardList *guards)
+	{
+		mutex_.lock();
+		if (--guards->refcnt == 0)
+			rb_erase(&guards->rb, &root_);
+		else
+			guards = NULL;
+
+		mutex_.unlock();
+		delete guards;
+	}
+
+private:
+	struct rb_root root_;
+	std::mutex mutex_;
+
+public:
+	__NamedGuardMap()
+	{
+		root_.rb_node = NULL;
+	}
+} __guard_map;
+
+class __WFNamedGuard : public WFConditional
+{
+public:
+	__WFNamedGuard(SubTask *task) : WFConditional(task)
+	{
+		node_.guard = this;
+	}
+
+	__WFNamedGuard(SubTask *task, void **msgbuf) : WFConditional(task, msgbuf)
+	{
+		node_.guard = this;
+	}
+
+	virtual ~__WFNamedGuard()
+	{
+		if (!this->flag)
+			__guard_map.unref(guards_);
+	}
+
+	SubTask *get_task() const { return this->task; }
+
+	void set_task(SubTask *task) { this->task = task; }
+
+protected:
+	virtual void dispatch();
+	virtual void signal(void *msg) { }
+
+private:
+	struct __guard_node node_;
+	__NamedGuardMap::GuardList *guards_;
+	friend __NamedGuardMap;
+};
+
+void __WFNamedGuard::dispatch()
+{
+	guards_->mutex.lock();
+	if (guards_->acquired)
+		guards_->push_back(&node_);
+	else
+	{
+		guards_->acquired = true;
+		this->WFConditional::signal(NULL);
+	}
+
+	guards_->mutex.unlock();
+	this->WFConditional::dispatch();
+}
+
+WFConditional *__NamedGuardMap::create(const std::string& name,
+									   SubTask *task)
+{
+	auto *guard = new __WFNamedGuard(task);
+	mutex_.lock();
+	guard->guards_ = __get_object_list<GuardList>(name, &root_, true);
+	guard->guards_->refcnt++;
+	mutex_.unlock();
+	return guard;
+}
+
+WFConditional *__NamedGuardMap::create(const std::string& name,
+									   SubTask *task, void **msgbuf)
+{
+	auto *guard = new __WFNamedGuard(task, msgbuf);
+	mutex_.lock();
+	guard->guards_ = __get_object_list<GuardList>(name, &root_, true);
+	guard->guards_->refcnt++;
+	mutex_.unlock();
+	return guard;
+}
+
+struct __guard_node *__NamedGuardMap::release(const std::string& name)
+{
+	struct __guard_node *node = NULL;
+	GuardList *guards;
+
+	mutex_.lock();
+	guards = __get_object_list<GuardList>(name, &root_, false);
+	if (guards)
+	{
+		if (--guards->refcnt == 0)
+			rb_erase(&guards->rb, &root_);
+		else
+		{
+			guards->mutex.lock();
+			if (!guards->empty())
+			{
+				node = list_entry(guards->head.next, struct __guard_node, list);
+				list_del(&node->list);
+			}
+			else
+				guards->acquired = false;
+
+			guards->mutex.unlock();
+			guards = NULL;
+		}
+	}
+
+	mutex_.unlock();
+	delete guards;
+	return node;
+}
+
+WFConditional *WFTaskFactory::create_guard(const std::string& name,
+										   SubTask *task)
+{
+	return __guard_map.create(name, task);
+}
+
+WFConditional *WFTaskFactory::create_guard(const std::string& name,
+										   SubTask *task, void **msgbuf)
+{
+	return __guard_map.create(name, task, msgbuf);
+}
+
+int WFTaskFactory::release_guard(const std::string& name, void *msg)
+{
+	struct __guard_node *node = __guard_map.release(name);
+
+	if (!node)
+		return 0;
+
+	node->guard->WFConditional::signal(msg);
+	return 1;
+}
+
+int WFTaskFactory::release_guard_safe(const std::string& name, void *msg)
+{
+	struct __guard_node *node = __guard_map.release(name);
+	WFTimerTask *timer;
+
+	if (!node)
+		return 0;
+
+	timer = WFTaskFactory::create_timer_task(0, 0, [](WFTimerTask *timer) {
+		series_of(timer)->push_front((SubTask *)timer->user_data);
+	});
+	timer->user_data = node->guard->get_task();
+	node->guard->set_task(timer);
+	node->guard->WFConditional::signal(msg);
+	return 1;
 }
 
 /**************** Timed Go Task *****************/

@@ -28,8 +28,9 @@
 #include <atomic>
 #include <mutex>
 #include "WFTaskError.h"
-#include "WFKafkaClient.h"
 #include "StringUtil.h"
+#include "KafkaTaskImpl.inl"
+#include "WFKafkaClient.h"
 
 #define KAFKA_HEARTBEAT_INTERVAL	(3 * 1000 * 1000)
 
@@ -1209,6 +1210,9 @@ bool KafkaClientTask::add_toppar(const KafkaToppar& toppar)
 		}
 
 		new_toppar.set_offset(toppar.get_offset());
+		new_toppar.set_offset_timestamp(toppar.get_offset_timestamp());
+		new_toppar.set_low_watermark(toppar.get_low_watermark());
+		new_toppar.set_high_watermark(toppar.get_high_watermark());
 		this->toppar_list.add_item(new_toppar);
 
 		this->meta_list.add_item(tmp);
@@ -1239,6 +1243,9 @@ bool KafkaClientTask::add_toppar(const KafkaToppar& toppar)
 		}
 
 		new_toppar.set_offset(toppar.get_offset());
+		new_toppar.set_offset_timestamp(toppar.get_offset_timestamp());
+		new_toppar.set_low_watermark(toppar.get_low_watermark());
+		new_toppar.set_high_watermark(toppar.get_high_watermark());
 		this->toppar_list.add_item(new_toppar);
 
 		this->meta_list.add_item(*meta);
@@ -1450,7 +1457,9 @@ int KafkaClientTask::arrange_fetch()
 						return -1;
 
 					new_toppar.set_offset(toppar->get_offset());
+					new_toppar.set_offset_timestamp(toppar->get_offset_timestamp());
 					new_toppar.set_low_watermark(toppar->get_low_watermark());
+					new_toppar.set_high_watermark(toppar->get_high_watermark());
 					this->toppar_list_map[node_id].add_item(std::move(new_toppar));
 				}
 			}

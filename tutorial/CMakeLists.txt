@@ -44,7 +44,6 @@ set(TUTORIAL_LIST
 	tutorial-14-websocket_cli
 	tutorial-15-name_service
 	tutorial-17-dns_cli
-	tutorial-20-reducer
 	tutorial-22-ws_echo_server
 	tutorial-23-stream_cli
 	tutorial-23-stream_srv

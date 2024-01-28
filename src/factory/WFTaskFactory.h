@@ -324,6 +324,30 @@ public:
 							   size_t max);
 
 public:
+	static WFConditional *create_guard(const std::string& resource_name,
+									   SubTask *task);
+
+	static WFConditional *create_guard(const std::string& resource_name,
+									   SubTask *task, void **msgbuf);
+
+	/* The 'guard' is acquired after started, so call 'release_guard' after
+	   and only after the task is finished, typically in its callback.
+	   The function returns 1 if another is signaled, otherwise returns 0. */
+	static int release_guard(const std::string& resource_name)
+	{
+		return WFTaskFactory::release_guard(resource_name, NULL);
+	}
+
+	static int release_guard(const std::string& resaource_name, void *msg);
+
+	static int release_guard_safe(const std::string& resource_name)
+	{
+		return WFTaskFactory::release_guard_safe(resource_name, NULL);
+	}
+
+	static int release_guard_safe(const std::string& resource_name, void *msg);
+
+public:
 	template<class FUNC, class... ARGS>
 	static WFGoTask *create_go_task(const std::string& queue_name,
 									FUNC&& func, ARGS&&... args);
@@ -428,26 +452,26 @@ private:
 
 public:
 	static T *create_thread_task(const std::string& queue_name,
-								 std::function<void (INPUT *, OUTPUT *)> routine,
-								 std::function<void (T *)> callback);
+								std::function<void (INPUT *, OUTPUT *)> routine,
+								std::function<void (T *)> callback);
 
 	/* Create thread task with running time limit. */
 	static T *create_thread_task(time_t seconds, long nanoseconds,
-								 const std::string& queue_name,
-								 std::function<void (INPUT *, OUTPUT *)> routine,
-								 std::function<void (T *)> callback);
+								const std::string& queue_name,
+								std::function<void (INPUT *, OUTPUT *)> routine,
+								std::function<void (T *)> callback);
 
 public:
 	/* Create thread task on user's executor and execution queue. */
 	static T *create_thread_task(ExecQueue *queue, Executor *executor,
-								 std::function<void (INPUT *, OUTPUT *)> routine,
-								 std::function<void (T *)> callback);
+								std::function<void (INPUT *, OUTPUT *)> routine,
+								std::function<void (T *)> callback);
 
 	/* With running time limit. */
 	static T *create_thread_task(time_t seconds, long nanoseconds,
-								 ExecQueue *queue, Executor *executor,
-								 std::function<void (INPUT *, OUTPUT *)> routine,
-								 std::function<void (T *)> callback);
+								ExecQueue *queue, Executor *executor,
+								std::function<void (INPUT *, OUTPUT *)> routine,
+								std::function<void (T *)> callback);
 };
 
 #include "WFTaskFactory.inl"

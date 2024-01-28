@@ -617,7 +617,7 @@ int Communicator::send_message_async(struct iovec vectors[], int cnt, struct Com
 	return 1;
 }
 
-#define ENCODE_IOV_MAX 8192
+#define ENCODE_IOV_MAX		2048
 
 int Communicator::send_message(struct CommConnEntry *entry)
 {
