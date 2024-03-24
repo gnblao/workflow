@@ -27,6 +27,7 @@
 #include <condition_variable>
 #include <openssl/ssl.h>
 #include "CommScheduler.h"
+#include "EndpointParams.h"
 #include "WFConnection.h"
 #include "WFGlobal.h"
 #include "WFServer.h"
@@ -95,10 +96,20 @@ int WFServerBase::init(const struct sockaddr *bind_addr, socklen_t addrlen,
 			timeout = this->params.receive_timeout;
 	}
 
+	if (this->params.transport_type == TT_TCP_SSL ||
+		this->params.transport_type == TT_SCTP_SSL)
+	{
+		if (!cert_file || !key_file)
+		{
+			errno = EINVAL;
+			return -1;
+		}
+	}
+
 	if (this->CommService::init(bind_addr, addrlen, -1, timeout) < 0)
 		return -1;
 
-	if (key_file && cert_file)
+	if (cert_file && key_file && this->params.transport_type != TT_UDP)
 	{
 		SSL_CTX *ssl_ctx = this->new_ssl_ctx(cert_file, key_file);
 
@@ -121,10 +132,34 @@ int WFServerBase::create_listen_fd()
 	{
 		const struct sockaddr *bind_addr;
 		socklen_t addrlen;
+		int type, protocol;
 		int reuse = 1;
 
+		switch (this->params.transport_type)
+		{
+		case TT_TCP:
+		case TT_TCP_SSL:
+			type = SOCK_STREAM;
+			protocol = 0;
+			break;
+		case TT_UDP:
+			type = SOCK_DGRAM;
+			protocol = 0;
+			break;
+#ifdef IPPROTO_SCTP
+		case TT_SCTP:
+		case TT_SCTP_SSL:
+			type = SOCK_STREAM;
+			protocol = IPPROTO_SCTP;
+			break;
+#endif
+		default:
+			errno = EPROTONOSUPPORT;
+			return -1;
+		}
+
 		this->get_addr(&bind_addr, &addrlen);
-		this->listen_fd = socket(bind_addr->sa_family, SOCK_STREAM, 0);
+		this->listen_fd = socket(bind_addr->sa_family, type, protocol);
 		if (this->listen_fd >= 0)
 		{
 			setsockopt(this->listen_fd, SOL_SOCKET, SO_REUSEADDR,

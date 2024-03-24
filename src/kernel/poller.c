@@ -650,7 +650,57 @@ static void __poller_handle_connect(struct __poller_node *node, poller_t *poller
 	poller->callback((struct poller_result *)node, poller->context);
 }
 
-static void __poller_handle_ssl_accept(struct __poller_node *node, poller_t *poller)
+static void __poller_handle_recvfrom(struct __poller_node *node,
+									 poller_t *poller)
+{
+	struct __poller_node *res = node->res;
+	struct sockaddr_storage ss;
+	struct sockaddr *addr = (struct sockaddr *)&ss;
+	socklen_t addrlen;
+	void *result;
+	ssize_t n;
+
+	while (1)
+	{
+		addrlen = sizeof (struct sockaddr_storage);
+		n = recvfrom(node->data.fd, poller->buf, POLLER_BUFSIZE, 0,
+					 addr, &addrlen);
+		if (n < 0)
+		{
+			if (errno == EAGAIN)
+				return;
+			else
+				break;
+		}
+
+		result = node->data.recvfrom(addr, addrlen, poller->buf, n,
+									 node->data.context);
+		if (!result)
+			break;
+
+		res->data = node->data;
+		res->data.result = result;
+		res->error = 0;
+		res->state = PR_ST_SUCCESS;
+		poller->callback((struct poller_result *)res, poller->context);
+
+		res = (struct __poller_node *)malloc(sizeof (struct __poller_node));
+		node->res = res;
+		if (!res)
+			break;
+	}
+
+	if (__poller_remove_node(node, poller))
+		return;
+
+	node->error = errno;
+	node->state = PR_ST_ERROR;
+	free(node->res);
+	poller->callback((struct poller_result *)node, poller->context);
+}
+
+static void __poller_handle_ssl_accept(struct __poller_node *node,
+									   poller_t *poller)
 {
 	int ret = SSL_accept(node->data.ssl);
 
@@ -843,52 +893,6 @@ static void __poller_handle_notify(struct __poller_node *node, poller_t *poller)
 	poller->callback((struct poller_result *)node, poller->context);
 }
 
-static void __poller_handle_recvfrom(struct __poller_node *node, poller_t *poller)
-{
-	struct __poller_node *res = node->res;
-	struct sockaddr_storage ss;
-	struct sockaddr *addr = (struct sockaddr *)&ss;
-	socklen_t addrlen;
-	void *result;
-	ssize_t n;
-
-	while (1)
-	{
-		addrlen = sizeof(struct sockaddr_storage);
-		n = recvfrom(node->data.fd, poller->buf, POLLER_BUFSIZE, 0, addr, &addrlen);
-		if (n < 0)
-		{
-			if (errno == EAGAIN)
-				return;
-			else
-				break;
-		}
-
-		result = node->data.recvfrom(addr, addrlen, poller->buf, n, node->data.context);
-		if (!result)
-			break;
-
-		res->data = node->data;
-		res->data.result = result;
-		res->error = 0;
-		res->state = PR_ST_SUCCESS;
-		poller->callback((struct poller_result *)res, poller->context);
-
-		res = (struct __poller_node *)malloc(sizeof(struct __poller_node));
-		node->res = res;
-		if (!res)
-			break;
-	}
-
-	if (__poller_remove_node(node, poller))
-		return;
-
-	node->error = errno;
-	node->state = PR_ST_ERROR;
-	free(node->res);
-	poller->callback((struct poller_result *)node, poller->context);
-}
-
 static int __poller_handle_pipe(poller_t *poller)
 {
 	struct __poller_node **node = (struct __poller_node **)poller->buf;
@@ -1057,6 +1061,9 @@ static void *__poller_thread_routine(void *arg)
 			case PD_OP_CONNECT:
 				__poller_handle_connect(node, poller);
 				break;
+			case PD_OP_RECVFROM:
+				__poller_handle_recvfrom(node, poller);
+				break;
 			case PD_OP_SSL_ACCEPT:
 				__poller_handle_ssl_accept(node, poller);
 				break;
@@ -1071,9 +1078,6 @@ static void *__poller_thread_routine(void *arg)
 				break;
 			case PD_OP_NOTIFY:
 				__poller_handle_notify(node, poller);
-				break;
-			case PD_OP_RECVFROM:
-				__poller_handle_recvfrom(node, poller);
 				break;
 			}
 		}
@@ -1294,6 +1298,9 @@ static int __poller_data_get_event(int *event, const struct poller_data *data)
 	case PD_OP_CONNECT:
 		*event = EPOLLOUT | EPOLLET;
 		return 0;
+	case PD_OP_RECVFROM:
+		*event = EPOLLIN | EPOLLET;
+		return 1;
 	case PD_OP_SSL_ACCEPT:
 		*event = EPOLLIN | EPOLLET;
 		return 0;
@@ -1307,9 +1314,6 @@ static int __poller_data_get_event(int *event, const struct poller_data *data)
 		*event = EPOLLIN | EPOLLET;
 		return 1;
 	case PD_OP_NOTIFY:
-		*event = EPOLLIN | EPOLLET;
-		return 1;
-	case PD_OP_RECVFROM:
 		*event = EPOLLIN | EPOLLET;
 		return 1;
 	default:
