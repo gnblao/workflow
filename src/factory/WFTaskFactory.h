@@ -25,7 +25,7 @@
 #include <time.h>
 #include <utility>
 #include <functional>
-#include "ProtocolMessage.h"
+#include <openssl/ssl.h>
 #include "URIParser.h"
 #include "RedisMessage.h"
 #include "HttpMessage.h"
@@ -90,8 +90,9 @@ using fsync_callback_t = std::function<void (WFFileSyncTask *)>;
 using timer_callback_t = std::function<void (WFTimerTask *)>;
 using counter_callback_t = std::function<void (WFCounterTask *)>;
 
-// Mailbox is like counter with data passing
 using mailbox_callback_t = std::function<void (WFMailboxTask *)>;
+
+using selector_callback_t = std::function<void (WFSelectorTask *)>;
 
 // Graph (DAG) task.
 using graph_callback_t = std::function<void (WFGraphTask *)>;
@@ -299,6 +300,13 @@ public:
 							 size_t max);
 
 public:
+	static WFSelectorTask *create_selector_task(size_t candidates,
+												selector_callback_t callback)
+	{
+		return new WFSelectorTask(candidates, std::move(callback));
+	}
+
+public:
 	static WFConditional *create_conditional(SubTask *task, void **msgbuf)
 	{
 		return new WFConditional(task, msgbuf);
@@ -338,7 +346,7 @@ public:
 		return WFTaskFactory::release_guard(resource_name, NULL);
 	}
 
-	static int release_guard(const std::string& resaource_name, void *msg);
+	static int release_guard(const std::string& resource_name, void *msg);
 
 	static int release_guard_safe(const std::string& resource_name)
 	{
@@ -439,6 +447,12 @@ public:
 								 int retry_max,
 								 std::function<void (T *)> callback);
 
+	static T *create_client_task(enum TransportType type,
+								 const struct sockaddr *addr,
+								 socklen_t addrlen,
+								 SSL_CTX *ssl_ctx,
+								 int retry_max,
+								 std::function<void (T *)> callback);
 public:
 	static T *create_server_task(CommService *service,
 								 std::function<void (T *)>& process);

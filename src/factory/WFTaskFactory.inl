@@ -29,6 +29,7 @@
 #include <functional>
 #include <utility>
 #include <atomic>
+#include <openssl/ssl.h>
 #include "WFGlobal.h"
 #include "Workflow.h"
 #include "WFTask.h"
@@ -75,7 +76,9 @@ public:
 		WFClientTask<REQ, RESP>(NULL, WFGlobal::get_scheduler(), std::move(cb))
 	{
 		type_ = TT_TCP;
+		ssl_ctx_ = NULL;
 		fixed_addr_ = false;
+		fixed_conn_ = false;
 		retry_max_ = retry_max;
 		retry_times_ = 0;
 		redirect_ = false;
@@ -116,6 +119,8 @@ public:
 
 	enum TransportType get_transport_type() const { return type_; }
 
+	void set_ssl_ctx(SSL_CTX *ssl_ctx) { ssl_ctx_ = ssl_ctx; }
+
 	virtual const ParsedURI *get_current_uri() const { return &uri_; }
 
 	void set_redirect(const ParsedURI& uri)
@@ -133,8 +138,12 @@ public:
 
 	bool is_fixed_addr() const { return this->fixed_addr_; }
 
+	bool is_fixed_conn() const { return this->fixed_conn_; }
+
 protected:
 	void set_fixed_addr(int fixed) { this->fixed_addr_ = fixed; }
+
+	void set_fixed_conn(int fixed) { this->fixed_conn_ = fixed; }
 
 	void set_info(const std::string& info)
 	{
@@ -168,7 +177,9 @@ protected:
 	enum TransportType type_;
 	ParsedURI uri_;
 	std::string info_;
+	SSL_CTX *ssl_ctx_;
 	bool fixed_addr_;
+	bool fixed_conn_;
 	bool redirect_;
 	CTX ctx_;
 	int retry_max_;
@@ -226,7 +237,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(enum TransportType type,
 	info_.assign(info);
 	params.use_tls_sni = false;
 	if (WFGlobal::get_route_manager()->get(type, &addrinfo, info_, &params,
-										   "", route_result_) < 0)
+										   "", ssl_ctx_, route_result_) < 0)
 	{
 		this->state = WFT_STATE_SYS_ERROR;
 		this->error = errno;
@@ -316,7 +327,9 @@ WFRouterTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 		.type			=	type_,
 		.uri			=	uri_,
 		.info			=	info_.c_str(),
+		.ssl_ctx		=	ssl_ctx_,
 		.fixed_addr		=	fixed_addr_,
+		.fixed_conn		=	fixed_conn_,
 		.retry_times	=	retry_times_,
 		.tracing		=	&tracing_,
 	};
@@ -484,15 +497,21 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(enum TransportType type,
 													std::function<void (WFNetworkTask<REQ, RESP> *)> callback)
 {
 	auto *task = new WFComplexClientTask<REQ, RESP>(retry_max, std::move(callback));
-	char buf[8];
-	std::string url = "scheme://";
 	ParsedURI uri;
+	char buf[32];
 
 	sprintf(buf, "%u", port);
-	url += host;
-	url += ":";
-	url += buf;
-	URIParser::parse(url, uri);
+	uri.scheme = strdup("scheme");
+	uri.host = strdup(host.c_str());
+	uri.port = strdup(buf);
+	if (!uri.scheme || !uri.host || !uri.port)
+	{
+		uri.state = URI_STATE_ERROR;
+		uri.error = errno;
+	}
+	else
+		uri.state = URI_STATE_SUCCESS;
+
 	task->init(std::move(uri));
 	task->set_transport_type(type);
 	return task;
@@ -538,6 +557,22 @@ WFNetworkTaskFactory<REQ, RESP>::create_client_task(enum TransportType type,
 {
 	auto *task = new WFComplexClientTask<REQ, RESP>(retry_max, std::move(callback));
 
+	task->init(type, addr, addrlen, "");
+	return task;
+}
+
+template<class REQ, class RESP>
+WFNetworkTask<REQ, RESP> *
+WFNetworkTaskFactory<REQ, RESP>::create_client_task(enum TransportType type,
+													const struct sockaddr *addr,
+													socklen_t addrlen,
+													SSL_CTX *ssl_ctx,
+													int retry_max,
+													std::function<void (WFNetworkTask<REQ, RESP> *)> callback)
+{
+	auto *task = new WFComplexClientTask<REQ, RESP>(retry_max, std::move(callback));
+
+	task->set_ssl_ctx(ssl_ctx);
 	task->init(type, addr, addrlen, "");
 	return task;
 }

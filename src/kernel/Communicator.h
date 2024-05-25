@@ -96,7 +96,7 @@ private:
 
 public:
 	virtual ~CommTarget() { }
-	friend class CommSession;
+	friend class CommServiceTarget;
 	friend class Communicator;
 };
 
@@ -181,8 +181,7 @@ private:
 private:
 	struct timespec begin_time;
 	int timeout;
-	short passive;
-	short reliable;
+	int passive;
 
 public:
 	CommSession() : target(nullptr), conn(nullptr), out(nullptr), in(nullptr)
@@ -251,6 +250,7 @@ private:
 	void decref();
 
 private:
+	int reliable;
 	int listen_fd;
 	int ref;
 
@@ -346,12 +346,11 @@ private:
 	int send_message(struct CommConnEntry *entry);
 
 	int request_new_conn(CommSession *session, CommTarget *target);
-
 	int request_idle_conn(CommSession *session, CommTarget *target);
-	int reply_idle_conn(CommSession *session, CommTarget *target);
 
 	int reply_message_unreliable(struct CommConnEntry *entry);
 
+	int reply_reliable(CommSession *session, CommTarget *target);
 	int reply_unreliable(CommSession *session, CommTarget *target);
 
 	void handle_incoming_request(struct poller_result *res);
@@ -377,7 +376,7 @@ private:
 	static void handler_thread_routine(void *context);
 
 	static int nonblock_connect(CommTarget *target);
-	static int nonblock_listen(CommService *service, int *reliable);
+	static int nonblock_listen(CommService *service);
 
 	static struct CommConnEntry *launch_conn(CommSession *session,
 											 CommTarget *target);
